@@ -68,13 +68,13 @@ pipeline {
         stage('Docker container run') {
             steps {
                 
-                steps {
+                
                     sh '''
                     ssh -i /home/ubuntu/new-key -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
                         bash /home/ubuntu/deploy.sh ${ECR_URI} ${BUILD_NUMBER}
                     '
                     '''
-    }
+    
                 }
             }
         }
