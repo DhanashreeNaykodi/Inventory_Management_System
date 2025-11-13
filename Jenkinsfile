@@ -68,9 +68,7 @@ pipeline {
             steps {
                  withCredentials([string(credentialsId: 'ios_creds', variable: 'IOS_CREDS')]){
                 sh """ #!/bin/bash
-                set -a
-                source <(echo "$IOS_CREDS")
-                set +a
+                export $(echo "$MY_CREDS" | xargs)
                 ssh -i /home/ubuntu/new-key.pem ubuntu@${SERVER_IP} \"
                     aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
                     sudo docker pull ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
