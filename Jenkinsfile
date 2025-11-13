@@ -1,5 +1,5 @@
 pipeline {
-    agent {label "agent1"}
+    agent {label "java_agent"}
 
     environment{
         ECR_URI=credentials('ECR_URI')
