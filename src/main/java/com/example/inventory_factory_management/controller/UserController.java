@@ -2,9 +2,8 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.DTO.*;
 import com.example.inventory_factory_management.service.CentralOfficeService;
-import com.example.inventory_factory_management.service.authService;
-import com.example.inventory_factory_management.service.userService;
-import jakarta.validation.Valid;
+import com.example.inventory_factory_management.service.AuthService;
+import com.example.inventory_factory_management.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,17 +14,16 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
 public class UserController {
 
     @Autowired
-    userService userService;
+    UserService userService;
 
     @Autowired
-    authService authService;
+    AuthService authService;
 
     @Autowired
     CentralOfficeService centralOfficeService;

@@ -32,10 +32,10 @@ public class EmailService {
             System.out.println("Attempting to send email via JavaMailSender...");
             javaMailSender.send(mailMessage);
 
-            System.out.println("✅ EMAIL SENT SUCCESSFULLY to: " + toEmail);
+            System.out.println("EMAIL SENT SUCCESSFULLY to: " + toEmail);
 
         } catch (Exception e) {
-            System.err.println("❌ FAILED to send email to " + toEmail);
+            System.err.println("FAILED to send email to " + toEmail);
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }

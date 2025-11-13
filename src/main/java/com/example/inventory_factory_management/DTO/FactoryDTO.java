@@ -1,5 +1,5 @@
 package com.example.inventory_factory_management.DTO;
-import com.example.inventory_factory_management.constants.account_status;
+import com.example.inventory_factory_management.constants.AccountStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -15,7 +15,7 @@ public class FactoryDTO {
     private String name;
     private String city;
     private String address;
-    private account_status status;
+    private AccountStatus status;
 
 
     // Use plantHead as the manager

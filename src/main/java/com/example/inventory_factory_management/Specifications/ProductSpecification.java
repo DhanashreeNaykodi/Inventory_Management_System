@@ -1,14 +1,14 @@
 package com.example.inventory_factory_management.Specifications;
 
-import com.example.inventory_factory_management.entity.product;
-import com.example.inventory_factory_management.constants.account_status;
+import com.example.inventory_factory_management.entity.Product;
+import com.example.inventory_factory_management.constants.AccountStatus;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
 public class ProductSpecification {
 
-    public static Specification<product> withFilters(String search, Long categoryId, account_status status) {
-        return (Root<product> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
+    public static Specification<Product> withFilters(String search, Long categoryId, AccountStatus status) {
+        return (Root<Product> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
             // Search by product name

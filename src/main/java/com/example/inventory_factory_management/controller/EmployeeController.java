@@ -16,63 +16,47 @@ public class EmployeeController {
     private EmployeeService employeeService;
 
 
-    // Bay Management - MANAGER or OWNER
-
     @PreAuthorize("hasRole('MANAGER')")
-    @PostMapping("/bays")
+    @PostMapping("/createBay")
     public BaseResponseDTO<BayDTO> createBay(@RequestBody CreateBayDTO bayDTO) {
         return employeeService.createBay(bayDTO);
     }
 
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    @GetMapping("/factories/bays")
-    public BaseResponseDTO<List<BayDTO>> getBaysInFactory() {
-        return employeeService.getBaysInFactory();
-    }
-
-    // Create worker/supervisor - MANAGER or OWNER
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/createEmployee")
     public BaseResponseDTO<UserDTO> createEmployee(@RequestBody CreateEmployeeDTO employeeDTO) {
         return employeeService.createEmployee(employeeDTO);
     }
 
-    // Get all employees for a factory - MANAGER or OWNER
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @GetMapping("/factories/bays")
+    public BaseResponseDTO<List<BayDTO>> getBaysInFactory(
+            @RequestParam(required = false) Long factoryId) {
+        return employeeService.getBaysInFactory(factoryId);
+    }
+
+    // Get employees by factory ID
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     @GetMapping("/employees/factories/{factoryId}")
-    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactory(@PathVariable Long factoryId) {
-        return employeeService.getEmployeesByFactory(factoryId);
+    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(@PathVariable Long factoryId) {
+        return employeeService.getEmployeesByFactoryId(factoryId);
     }
 
-    // Update employee - MANAGER or OWNER
+    // Get employees by factory name
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @GetMapping("/employees/factories/name/{factoryName}")
+    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(@PathVariable String factoryName) {
+        return employeeService.getEmployeesByFactoryName(factoryName);
+    }
+
+    // Get manager's own factory employees
     @PreAuthorize("hasRole('MANAGER')")
-    @PutMapping("/employee/{employeeId}")
-    public BaseResponseDTO<UserDTO> updateEmployee(@PathVariable Long employeeId,
-                                                   @RequestBody CreateEmployeeDTO employeeDTO) {
-        return employeeService.updateEmployee(employeeId, employeeDTO);
+    @GetMapping("/employees/my-factory")
+    public BaseResponseDTO<EmployeeResponseDTO> getMyFactoryEmployees() {
+        return employeeService.getEmployeesByFactoryId(null);
     }
 
-    // Delete employee - MANAGER or OWNER
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    @DeleteMapping("/employee/{employeeId}")
-    public BaseResponseDTO<Void> deleteEmployee(@PathVariable Long employeeId) {
-        return employeeService.deleteEmployee(employeeId);
-    }
-
-    // Get available bays for assigning to workers - MANAGER or OWNER
-//    @GetMapping("/factories/{factoryId}/bays")
-//    public BaseResponseDTO<List<BayDTO>> getAvailableBays(@PathVariable Long factoryId) {
-//        return employeeService.getAvailableBays(factoryId);
-//    }
-
-    // Get my factories - MANAGER or OWNER
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    @GetMapping("/my-factories")
-    public BaseResponseDTO<List<FactoryInfoDTO>> getMyFactories() {
-        return employeeService.getMyFactories();
-    }
-
-    // Get all employees with filters - OWNER or CENTRAL_OFFICER only
+    // Get all employees with filters (for owners/central officers)
     @PreAuthorize("hasAnyRole('OWNER', 'CENTRAL_OFFICER')")
     @GetMapping("/employees")
     public BaseResponseDTO<EmployeeResponseDTO> getAllEmployees(
@@ -86,5 +70,22 @@ public class EmployeeController {
         return employeeService.getAllEmployees(filterDTO);
     }
 
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @PutMapping("/employees/{employeeId}")
+    public BaseResponseDTO<UserDTO> updateEmployee(@PathVariable Long employeeId,
+                                                   @RequestBody CreateEmployeeDTO employeeDTO) {
+        return employeeService.updateEmployee(employeeId, employeeDTO);
+    }
 
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @DeleteMapping("/employees/{employeeId}")
+    public BaseResponseDTO<Void> deleteEmployee(@PathVariable Long employeeId) {
+        return employeeService.deleteEmployee(employeeId);
+    }
+
+//    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+//    @GetMapping("/my-factories")
+//    public BaseResponseDTO<List<FactoryInfoDTO>> getMyFactories() {
+//        return employeeService.getMyFactories();
+//    }
 }

@@ -1,6 +1,7 @@
 package com.example.inventory_factory_management.DTO;
 
-import com.example.inventory_factory_management.constants.account_status;
+import com.example.inventory_factory_management.constants.AccountStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -21,7 +22,10 @@ public class ProductDTO {
     @NotBlank(message = "Product name cannot be blank")
     private String name;
 
+    @JsonIgnore // This prevents MultipartFile from being included in JSON response
     private MultipartFile imageFile; // For file upload
+
+
     private String image; // For storing the URL after upload
 
 
@@ -36,7 +40,7 @@ public class ProductDTO {
     @Positive(message = "Reward points must be positive")
     private Integer rewardPts;
 
-    private account_status status;
+    private AccountStatus status;
     private Long categoryId;
     private String categoryName;
     private LocalDateTime createdAt;

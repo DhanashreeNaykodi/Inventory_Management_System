@@ -2,14 +2,13 @@ package com.example.inventory_factory_management.service;
 
 import com.example.inventory_factory_management.DTO.*;
 import com.example.inventory_factory_management.constants.Role;
-import com.example.inventory_factory_management.constants.account_status;
-import com.example.inventory_factory_management.entity.centralOffice;
-import com.example.inventory_factory_management.entity.user;
-import com.example.inventory_factory_management.entity.users_centralOffice;
+import com.example.inventory_factory_management.constants.AccountStatus;
+import com.example.inventory_factory_management.entity.CentralOffice;
+import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.entity.UserCentralOffice;
 import com.example.inventory_factory_management.repository.CentralOfficeRepository;
 import com.example.inventory_factory_management.repository.UserCentralOfficeRepository;
-import com.example.inventory_factory_management.repository.userRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.inventory_factory_management.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,18 +16,18 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class CentralOfficeService {
 
     @Autowired
     private CentralOfficeRepository centralOfficeRepository;
 
     @Autowired
-    private userRepository userRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private UserCentralOfficeRepository userCentralOfficeRepository;
@@ -39,6 +38,8 @@ public class CentralOfficeService {
     @Autowired
     private EmailService emailService;
 
+
+//    CREATING CENTRAL OFFICE WITH HEAD CENTRAL OFFICER
     @Transactional
     public BaseResponseDTO<Void> createCentralOffice(CentralOfficeDTO dto) {
         try {
@@ -52,32 +53,32 @@ public class CentralOfficeService {
             }
 
             // Create central office
-            centralOffice office = new centralOffice();
+            CentralOffice office = new CentralOffice();
             office.setLocation(dto.getLocation() != null ? dto.getLocation() : "Headquarters");
-            centralOffice savedOffice = centralOfficeRepository.save(office);
+            CentralOffice savedOffice = centralOfficeRepository.save(office);
 
             // Handle user (central officer head) - FIXED: Proper Optional handling
-            Optional<user> existingUser = userRepository.findByEmail(dto.getCentralOfficerHeadEmail());
-            user userEntity;
+            Optional<User> existingUser = userRepository.findByEmail(dto.getCentralOfficerHeadEmail());
+            User userEntity;
 
             if (existingUser.isPresent()) {
                 userEntity = existingUser.get();
                 if (userEntity.getRole() != Role.CENTRAL_OFFICER) {
-                    return BaseResponseDTO.error("User exists but is not a Central Officer");
+                    return BaseResponseDTO.error("User already exists with different role.");
                 }
             } else {
                 // Create new CENTRAL_OFFICER user
-                userEntity = new user();
+                userEntity = new User();
                 userEntity.setEmail(dto.getCentralOfficerHeadEmail());
                 userEntity.setUsername(dto.getCentralOfficerHeadName() != null ? dto.getCentralOfficerHeadName() : dto.getCentralOfficerHeadEmail());
                 userEntity.setPassword(passwordEncoder.encode(dto.getPassword() != null ? dto.getPassword() : "default123"));
                 userEntity.setRole(Role.CENTRAL_OFFICER);
-                userEntity.setStatus(account_status.ACTIVE);
+                userEntity.setStatus(AccountStatus.ACTIVE);
                 userEntity.setCreatedAt(LocalDateTime.now());
                 userEntity.setUpdatedAt(LocalDateTime.now());
+                userEntity.setImg("src/main/resources/static/images/user-profile-icon.jpg");
                 userEntity = userRepository.save(userEntity);
 
-                // Send welcome email only for new users
                 sendCentralOfficerWelcomeEmail(userEntity, dto.getPassword() != null ? dto.getPassword() : "default123");
             }
 
@@ -87,7 +88,7 @@ public class CentralOfficeService {
             }
 
             // Map this officer to the central office
-            users_centralOffice mapping = new users_centralOffice();
+            UserCentralOffice mapping = new UserCentralOffice();
             mapping.setOffice(savedOffice);
             mapping.setUser(userEntity);
             userCentralOfficeRepository.save(mapping);
@@ -99,18 +100,20 @@ public class CentralOfficeService {
         }
     }
 
+    
+//    INDIVIDUAL CHIEF OFFICERS
     @Transactional
     public BaseResponseDTO<Void> addChiefOfficerToOffice(AddChiefOfficerDTO dto) {
         try {
             // Step 1: Check if the Central Office exists
-            centralOffice office = centralOfficeRepository.findById(dto.getCentralOfficeId())
+            CentralOffice office = centralOfficeRepository.findById(dto.getCentralOfficeId())
                     .orElseThrow(() -> new RuntimeException("Central Office not found with ID: " + dto.getCentralOfficeId()));
 
             // Step 2: Check if user with email already exists
-            Optional<user> existingUserOpt = userRepository.findByEmail(dto.getCentralOfficerEmail());
+            Optional<User> existingUserOpt = userRepository.findByEmail(dto.getCentralOfficerEmail());
 
             if (existingUserOpt.isPresent()) {
-                user existingUser = existingUserOpt.get();
+                User existingUser = existingUserOpt.get();
 
                 // Check if user is already a CENTRAL_OFFICER
                 if (existingUser.getRole() == Role.CENTRAL_OFFICER) {
@@ -131,12 +134,12 @@ public class CentralOfficeService {
                     return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists");
                 }
 
-                user newUser = new user();
+                User newUser = new User();
                 newUser.setEmail(dto.getCentralOfficerEmail());
                 newUser.setUsername(dto.getCentralOfficerName() != null ? dto.getCentralOfficerName() : dto.getCentralOfficerEmail());
                 newUser.setPassword(passwordEncoder.encode("default123"));
                 newUser.setRole(Role.CENTRAL_OFFICER);
-                newUser.setStatus(account_status.ACTIVE);
+                newUser.setStatus(AccountStatus.ACTIVE);
 
                 if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
                     try {
@@ -155,7 +158,7 @@ public class CentralOfficeService {
             }
 
             // Step 4: Get the user (either existing or newly created)
-            user officer = userRepository.findByEmail(dto.getCentralOfficerEmail())
+            User officer = userRepository.findByEmail(dto.getCentralOfficerEmail())
                     .orElseThrow(() -> new RuntimeException("Failed to retrieve user after creation"));
 
             // Step 5: Check if mapping already exists for this office
@@ -164,7 +167,7 @@ public class CentralOfficeService {
             }
 
             // Step 6: Map the officer to the Central Office
-            users_centralOffice mapping = new users_centralOffice();
+            UserCentralOffice mapping = new UserCentralOffice();
             mapping.setOffice(office);
             mapping.setUser(officer);
             userCentralOfficeRepository.save(mapping);
@@ -177,7 +180,7 @@ public class CentralOfficeService {
     }
 
     // Updated email method name to match new naming convention
-    private void sendCentralOfficerWelcomeEmail(user centralOfficer, String password) {
+    private void sendCentralOfficerWelcomeEmail(User centralOfficer, String password) {
         try {
             String subject = "Welcome Central Officer - Inventory Management System";
             String message = "Dear " + centralOfficer.getUsername() + ",\n\n" +
@@ -200,7 +203,7 @@ public class CentralOfficeService {
 
     public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOffices() {
         try {
-            List<centralOffice> offices = centralOfficeRepository.findAll();
+            List<CentralOffice> offices = centralOfficeRepository.findAll();
 
             // Convert Entity → DTO
             List<CentralOfficeResponseDTO> officeDtos = offices.stream().map(office -> {
@@ -212,7 +215,7 @@ public class CentralOfficeService {
                 if (office.getUserMappings() != null && !office.getUserMappings().isEmpty()) {
                     List<UserProfileDTO> officers = office.getUserMappings().stream()
                             .map(mapping -> {
-                                user user = mapping.getUser();
+                                User user = mapping.getUser();
                                 UserProfileDTO userDto = new UserProfileDTO();
                                 userDto.setUserId(user.getUserId());
                                 userDto.setUsername(user.getUsername());
@@ -243,11 +246,11 @@ public class CentralOfficeService {
     public BaseResponseDTO<Void> removeChiefOfficerFromOffice(Long chiefOfficerId) {
         try {
             // Find the chief officer user
-            user chiefOfficer = userRepository.findById(chiefOfficerId)
+            User chiefOfficer = userRepository.findById(chiefOfficerId)
                     .orElseThrow(() -> new RuntimeException("Chief Officer not found"));
 
             // Find the mapping
-            Optional<users_centralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
+            Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
             if (mapping.isEmpty()) {
                 return BaseResponseDTO.error("Chief Officer is not assigned to any office");
             }
@@ -271,7 +274,7 @@ public class CentralOfficeService {
             }
 
             // Search for central officers by name (case-insensitive)
-            List<user> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(chiefOfficerName, Role.CENTRAL_OFFICER);
+            List<User> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(chiefOfficerName, Role.CENTRAL_OFFICER);
 
             if (centralOfficers.isEmpty()) {
                 return BaseResponseDTO.error("No chief officer found with name: " + chiefOfficerName);
@@ -280,15 +283,15 @@ public class CentralOfficeService {
             // If multiple officers found with similar names, return list for disambiguation
             if (centralOfficers.size() > 1) {
                 List<String> officerNames = centralOfficers.stream()
-                        .map(user::getUsername)
+                        .map(User::getUsername)
                         .collect(Collectors.toList());
                 return BaseResponseDTO.error("Multiple chief officers found. Please be more specific: " + officerNames);
             }
 
-            user chiefOfficer = centralOfficers.get(0);
+            User chiefOfficer = centralOfficers.get(0);
 
             // Find the mapping
-            Optional<users_centralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
+            Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
             if (mapping.isEmpty()) {
                 return BaseResponseDTO.error("Chief Officer '" + chiefOfficer.getUsername() + "' is not assigned to any office");
             }
@@ -312,7 +315,7 @@ public class CentralOfficeService {
             }
 
             // Search for central officers by username (case-insensitive)
-            List<user> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(name, Role.CENTRAL_OFFICER);
+            List<User> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(name, Role.CENTRAL_OFFICER);
 
             if (centralOfficers.isEmpty()) {
                 return BaseResponseDTO.error("No central officers found with name: " + name);
@@ -329,7 +332,7 @@ public class CentralOfficeService {
         }
     }
 
-    private CentralOfficerDTO convertToCentralOfficerDTO(user officer) {
+    private CentralOfficerDTO convertToCentralOfficerDTO(User officer) {
         CentralOfficerDTO dto = new CentralOfficerDTO();
         dto.setUserId(officer.getUserId());
         dto.setName(officer.getUsername()); // This is correct - mapping username to name in DTO
@@ -338,7 +341,7 @@ public class CentralOfficeService {
         dto.setStatus(officer.getStatus().toString());
 
         // Get office information
-        Optional<users_centralOffice> mapping = userCentralOfficeRepository.findByUser(officer);
+        Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(officer);
         if (mapping.isPresent()) {
             dto.setOfficeId(mapping.get().getOffice().getCentralOfficeId());
             dto.setOfficeName(mapping.get().getOffice().getLocation()+ " office");

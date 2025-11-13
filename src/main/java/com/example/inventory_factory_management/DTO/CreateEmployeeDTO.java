@@ -1,5 +1,9 @@
 package com.example.inventory_factory_management.DTO;
 
+import com.example.inventory_factory_management.constants.Role;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,10 +14,22 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateEmployeeDTO {
+    @NotBlank(message = "Username is required")
     private String username;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     private String email;
+
+    @NotBlank(message = "Phone number is required")
+//    @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be 10 digits")
     private String phone;
-    private String role; // WORKER or CHIEF_SUPERVISOR
-    private Long bayId; // Only for workers
-    private Long factoryId; // Factory where employee will work
+
+    @NotNull(message = "Role is required")
+    private Role role;
+
+    private Long bayId;
+
+    private Long factoryId;
+
 }

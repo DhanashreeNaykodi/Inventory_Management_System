@@ -2,7 +2,7 @@ package com.example.inventory_factory_management.DTO;
 
 
 import com.example.inventory_factory_management.constants.Role;
-import com.example.inventory_factory_management.constants.account_status;
+import com.example.inventory_factory_management.constants.AccountStatus;
 import lombok.*;
 
 @Data
@@ -17,5 +17,5 @@ public class UserProfileDTO {
     private String img;
     private String phone;
     private Role role;
-    private account_status status;
+    private AccountStatus status;
 }

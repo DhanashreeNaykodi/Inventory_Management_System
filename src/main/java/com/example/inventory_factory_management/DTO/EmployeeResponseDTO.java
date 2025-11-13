@@ -12,5 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class EmployeeResponseDTO {
     private List<EmployeeDetailDTO> employees;
-    private Integer totalCount;
+    private int totalCount;
+    private Long factoryId;
+    private String factoryName;
 }

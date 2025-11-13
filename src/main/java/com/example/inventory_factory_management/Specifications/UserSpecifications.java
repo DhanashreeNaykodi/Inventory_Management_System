@@ -1,14 +1,14 @@
 package com.example.inventory_factory_management.Specifications;
 
-import com.example.inventory_factory_management.entity.user;
-import com.example.inventory_factory_management.entity.userFactory;
+import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.entity.UserFactory;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
 public class UserSpecifications {
 
-    public static Specification<user> withFilters(String search, String role, Long factoryId) {
-        return (Root<user> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
+    public static Specification<User> withFilters(String search, String role, Long factoryId) {
+        return (Root<User> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();
 
             // Search by username or email
@@ -29,7 +29,7 @@ public class UserSpecifications {
             // Filter by factory - handles multiple user types
             if (factoryId != null) {
                 // FIXED: Changed "factoryMappings" to "userFactories" to match your entity field name
-                Join<user, userFactory> factoryJoin = root.join("userFactories", JoinType.LEFT);
+                Join<User, UserFactory> factoryJoin = root.join("userFactories", JoinType.LEFT);
                 Predicate factoryPredicate = cb.equal(factoryJoin.get("factory").get("factoryId"), factoryId);
 
                 // For managers - they can be in multiple factories

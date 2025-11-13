@@ -1,362 +1,483 @@
-//package com.example.inventory_factory_management.service;
-//
-//
-//import com.example.inventory_factory_management.DTO.*;
-//import com.example.inventory_factory_management.constants.Role;
-//import com.example.inventory_factory_management.constants.account_status;
-//import com.example.inventory_factory_management.entity.bay;
-//import com.example.inventory_factory_management.entity.factory;
-//import com.example.inventory_factory_management.entity.user;
-//import com.example.inventory_factory_management.entity.userFactory;
-//import com.example.inventory_factory_management.repository.BayRepository;
-//import com.example.inventory_factory_management.repository.factoryRepository;
-//import com.example.inventory_factory_management.repository.userFactoryRepository;
-//import com.example.inventory_factory_management.repository.userRepository;
-//import jakarta.transaction.Transactional;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.security.crypto.password.PasswordEncoder;
-//import org.springframework.stereotype.Service;
-//
-//import java.time.LocalDateTime;
-//import java.util.ArrayList;
-//import java.util.List;
-//import java.util.stream.Collectors;
-//
-//@Service
-//public class ManagerService {
-//
-//    @Autowired
-//    private userRepository userRepository;
-//
-//    @Autowired
-//    private userFactoryRepository userFactoryRepository;
-//
-//    @Autowired
-//    private factoryRepository factoryRepository;
-//
-//    @Autowired
-//    private BayRepository bayRepository;
-//
-//    @Autowired
-//    private PasswordEncoder passwordEncoder;
-//
-//    @Autowired
-//    private EmailService emailService;
-//
-//    // Manager creates worker/supervisor for their factory
-//    @Transactional
-//    public BaseResponseDTO<UserDTO> createEmployee(CreateEmployeeDTO employeeDTO, Long managerId) {
-//        try {
-//            // Validate manager exists and is a manager
-//            user manager = userRepository.findById(managerId)
-//                    .orElseThrow(() -> new RuntimeException("Manager not found"));
-//
-//            if (manager.getRole() != Role.MANAGER) {
-//                return BaseResponseDTO.error("User is not a manager");
-//            }
-//
-//            // Validate factory exists and manager has access to it
-//            factory factory = factoryRepository.findById(employeeDTO.getFactoryId())
-//                    .orElseThrow(() -> new RuntimeException("Factory not found"));
-//
-//            // Check if manager is assigned to this factory
-//            boolean managerHasAccess = userFactoryRepository.findByUser(manager).stream()
-//                    .anyMatch(uf -> uf.getFactory().getFactoryId().equals(employeeDTO.getFactoryId()));
-//
-//            if (!managerHasAccess) {
-//                return BaseResponseDTO.error("Manager does not have access to this factory");
-//            }
-//
-//            // Validate email doesn't exist
-//            if (userRepository.findByEmail(employeeDTO.getEmail()).isPresent()) {
-//                return BaseResponseDTO.error("User with this email already exists");
-//            }
-//
-//            // Validate role
-//            Role employeeRole;
-//            try {
-//                employeeRole = Role.valueOf(employeeDTO.getRole());
-//            } catch (IllegalArgumentException e) {
-//                return BaseResponseDTO.error("Invalid role. Must be WORKER or CHIEF_SUPERVISOR");
-//            }
-//
-//            if (employeeRole != Role.WORKER && employeeRole != Role.CHIEF_SUPERVISOR) {
-//                return BaseResponseDTO.error("Role must be WORKER or CHIEF_SUPERVISOR");
-//            }
-//
-//            // Validate bay for workers
-//            bay employeeBay = null;
-//            if (employeeRole == Role.WORKER) {
-//                if (employeeDTO.getBayId() == null) {
-//                    return BaseResponseDTO.error("Bay ID is required for workers");
-//                }
-//                employeeBay = bayRepository.findById(employeeDTO.getBayId())
-//                        .orElseThrow(() -> new RuntimeException("Bay not found"));
-//
-//                // Check if bay belongs to the same factory
-//                if (!employeeBay.getFactory().getFactoryId().equals(employeeDTO.getFactoryId())) {
-//                    return BaseResponseDTO.error("Bay does not belong to the specified factory");
-//                }
-//            }
-//
-//            // Create new employee user
-//            user newEmployee = new user();
-//            newEmployee.setUsername(employeeDTO.getUsername());
-//            newEmployee.setEmail(employeeDTO.getEmail());
-//            newEmployee.setPhone(Long.parseLong(employeeDTO.getPhone()));
-//            newEmployee.setRole(employeeRole);
-//            newEmployee.setStatus(account_status.ACTIVE);
-//
-//            // Generate password (first 3 chars of username + @ + first 7 digits of phone)
-//            String generatedPassword = employeeDTO.getUsername().substring(0, 3) + "@" + employeeDTO.getPhone().substring(0, 7);
-//            newEmployee.setPassword(passwordEncoder.encode(generatedPassword));
-//
-//            newEmployee.setCreatedAt(LocalDateTime.now());
-//            newEmployee.setUpdatedAt(LocalDateTime.now());
-//
-//            user savedEmployee = userRepository.save(newEmployee);
-//
-//            // Create userFactory relationship
-//            userFactory userFactoryRelation = new userFactory();
-//            userFactoryRelation.setUser(savedEmployee);
-//            userFactoryRelation.setFactory(factory);
-//            userFactoryRelation.setUserRole(employeeRole);
-//            userFactoryRelation.setStatus(account_status.ACTIVE);
-//            userFactoryRelation.setBay(employeeBay); // Set bay only for workers
-//
-//            userFactoryRepository.save(userFactoryRelation);
-//
-//            // Send welcome email
-//            sendEmployeeWelcomeEmail(savedEmployee, generatedPassword, factory.getName(), employeeRole);
-//
-//            UserDTO responseDTO = convertToUserDTO(savedEmployee);
-//            return BaseResponseDTO.success("Employee created successfully", responseDTO);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to create employee: " + e.getMessage());
-//        }
-//    }
-//
-//    // Get all employees for a manager's factory
-//    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactory(Long factoryId, Long managerId) {
-//        try {
-//            // Validate manager and factory access
-//            user manager = userRepository.findById(managerId)
-//                    .orElseThrow(() -> new RuntimeException("Manager not found"));
-//
-//            boolean managerHasAccess = userFactoryRepository.findByUser(manager).stream()
-//                    .anyMatch(uf -> uf.getFactory().getFactoryId().equals(factoryId));
-//
-//            if (!managerHasAccess) {
-//                return BaseResponseDTO.error("Manager does not have access to this factory");
-//            }
-//
-//            // Get all userFactory mappings for this factory
-//            List<userFactory> factoryEmployees = userFactoryRepository.findByFactoryId(factoryId);
-//
-//            List<EmployeeDetailDTO> employees = factoryEmployees.stream()
-//                    .map(uf -> convertToEmployeeDetailDTO(uf.getUser(), uf))
-//                    .collect(Collectors.toList());
-//
-//            EmployeeResponseDTO response = new EmployeeResponseDTO();
-//            response.setEmployees(employees);
-//            response.setTotalCount(employees.size());
-//
-//            return BaseResponseDTO.success("Employees fetched successfully", response);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to fetch employees: " + e.getMessage());
-//        }
-//    }
-//
-//    // Update employee
-//    @Transactional
-//    public BaseResponseDTO<UserDTO> updateEmployee(Long employeeId, CreateEmployeeDTO employeeDTO, Long managerId) {
-//        try {
-//            // Validate manager
-//            user manager = userRepository.findById(managerId)
-//                    .orElseThrow(() -> new RuntimeException("Manager not found"));
-//
-//            // Validate employee exists and belongs to manager's factory
-//            user employee = userRepository.findById(employeeId)
-//                    .orElseThrow(() -> new RuntimeException("Employee not found"));
-//
-//            List<userFactory> employeeFactories = userFactoryRepository.findByUser(employee);
-//            if (employeeFactories.isEmpty()) {
-//                return BaseResponseDTO.error("Employee is not assigned to any factory");
-//            }
-//
-//            // Check if manager has access to employee's factory
-//            boolean managerHasAccess = userFactoryRepository.findByUser(manager).stream()
-//                    .anyMatch(uf -> uf.getFactory().getFactoryId().equals(employeeFactories.get(0).getFactory().getFactoryId()));
-//
-//            if (!managerHasAccess) {
-//                return BaseResponseDTO.error("Manager does not have access to this employee");
-//            }
-//
-//            // Update employee details
-//            if (employeeDTO.getUsername() != null) {
-//                employee.setUsername(employeeDTO.getUsername());
-//            }
-//            if (employeeDTO.getEmail() != null && !employeeDTO.getEmail().equals(employee.getEmail())) {
-//                if (userRepository.findByEmail(employeeDTO.getEmail()).isPresent()) {
-//                    return BaseResponseDTO.error("Email already exists");
-//                }
-//                employee.setEmail(employeeDTO.getEmail());
-//            }
-//            if (employeeDTO.getPhone() != null) {
-//                employee.setPhone(Long.parseLong(employeeDTO.getPhone()));
-//            }
-//
-//            employee.setUpdatedAt(LocalDateTime.now());
-//            user updatedEmployee = userRepository.save(employee);
-//
-//            // Update userFactory relationship if factory changed
-//            if (employeeDTO.getFactoryId() != null &&
-//                    !employeeDTO.getFactoryId().equals(employeeFactories.get(0).getFactory().getFactoryId())) {
-//
-//                factory newFactory = factoryRepository.findById(employeeDTO.getFactoryId())
-//                        .orElseThrow(() -> new RuntimeException("Factory not found"));
-//
-//                userFactory relation = employeeFactories.get(0);
-//                relation.setFactory(newFactory);
-//
-//                // Update bay if provided and employee is a worker
-//                if (employee.getRole() == Role.WORKER && employeeDTO.getBayId() != null) {
-//                    bay newBay = bayRepository.findById(employeeDTO.getBayId())
-//                            .orElseThrow(() -> new RuntimeException("Bay not found"));
-//                    relation.setBay(newBay);
-//                }
-//
-//                userFactoryRepository.save(relation);
-//            }
-//
-//            return BaseResponseDTO.success("Employee updated successfully", convertToUserDTO(updatedEmployee));
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to update employee: " + e.getMessage());
-//        }
-//    }
-//
-//    // Delete employee (soft delete)
-//    @Transactional
-//    public BaseResponseDTO<Void> deleteEmployee(Long employeeId, Long managerId) {
-//        try {
-//            // Validate manager
-//            user manager = userRepository.findById(managerId)
-//                    .orElseThrow(() -> new RuntimeException("Manager not found"));
-//
-//            // Validate employee exists
-//            user employee = userRepository.findById(employeeId)
-//                    .orElseThrow(() -> new RuntimeException("Employee not found"));
-//
-//            // Check if manager has access to employee's factory
-//            List<userFactory> employeeFactories = userFactoryRepository.findByUser(employee);
-//            if (employeeFactories.isEmpty()) {
-//                return BaseResponseDTO.error("Employee is not assigned to any factory");
-//            }
-//
-//            boolean managerHasAccess = userFactoryRepository.findByUser(manager).stream()
-//                    .anyMatch(uf -> uf.getFactory().getFactoryId().equals(employeeFactories.get(0).getFactory().getFactoryId()));
-//
-//            if (!managerHasAccess) {
-//                return BaseResponseDTO.error("Manager does not have access to this employee");
-//            }
-//
-//            // Soft delete employee
-//            employee.setStatus(account_status.INACTIVE);
-//            employee.setUpdatedAt(LocalDateTime.now());
-//            userRepository.save(employee);
-//
-//            // Soft delete userFactory relationship
-//            userFactory relation = employeeFactories.get(0);
-//            relation.setStatus(account_status.INACTIVE);
-//            userFactoryRepository.save(relation);
-//
-//            return BaseResponseDTO.success("Employee deleted successfully");
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to delete employee: " + e.getMessage());
-//        }
-//    }
-//
-//    // Get available bays for a factory (for assigning to workers)
-//    public BaseResponseDTO<List<BayDTO>> getAvailableBays(Long factoryId) {
-//        try {
-//            List<bay> bays = bayRepository.findByFactoryFactoryId(factoryId);
-//            List<BayDTO> bayDTOs = bays.stream()
-//                    .map(this::convertToBayDTO)
-//                    .collect(Collectors.toList());
-//
-//            return BaseResponseDTO.success("Bays fetched successfully", bayDTOs);
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to fetch bays: " + e.getMessage());
-//        }
-//    }
-//
-//    private UserDTO convertToUserDTO(user user) {
-//        UserDTO dto = new UserDTO();
-//        dto.setUserId(user.getUserId());
-//        dto.setUsername(user.getUsername());
-//        dto.setEmail(user.getEmail());
-//        dto.setPhone(user.getPhone().toString());
-//        dto.setRole(user.getRole());
-//        dto.setStatus(user.getStatus());
-//        dto.setCreatedAt(user.getCreatedAt());
-//        dto.setUpdatedAt(user.getUpdatedAt());
-//        return dto;
-//    }
-//
-//    private EmployeeDetailDTO convertToEmployeeDetailDTO(user user, userFactory userFactory) {
-//        EmployeeDetailDTO dto = new EmployeeDetailDTO();
-//        dto.setUserId(user.getUserId());
-//        dto.setUsername(user.getUsername());
-//        dto.setEmail(user.getEmail());
-//        dto.setRole(user.getRole());
-//        dto.setStatus(user.getStatus());
-//        dto.setPhone(user.getPhone() != null ? user.getPhone().toString() : null);
-//        dto.setImg(user.getImg());
-//        dto.setCreatedAt(user.getCreatedAt());
-//
-//        // Factory information
-//        List<FactoryInfoDTO> factoryInfo = new ArrayList<>();
-//        FactoryInfoDTO info = new FactoryInfoDTO();
-//        info.setFactoryId(userFactory.getFactory().getFactoryId());
-//        info.setFactoryName(userFactory.getFactory().getName());
-//        info.setLocation(userFactory.getFactory().getCity());
-//        factoryInfo.add(info);
-//        dto.setFactories(factoryInfo);
-//
-//        return dto;
-//    }
-//
-//    private BayDTO convertToBayDTO(bay bay) {
-//        BayDTO dto = new BayDTO();
-//        dto.setBayId(bay.getBayId());
-//        dto.setName(bay.getName());
-//        dto.setDescription(bay.getDescription());
-//        return dto;
-//    }
-//
-//    private void sendEmployeeWelcomeEmail(user employee, String password, String factoryName, Role role) {
-//        try {
-//            String subject = "Welcome to " + factoryName + " - Inventory System";
-//            String message = "Dear " + employee.getUsername() + ",\n\n" +
-//                    "Welcome to Inventory Factory Management System!\n\n" +
-//                    "Your account has been created successfully as a " + role + " at " + factoryName + ".\n\n" +
-//                    "Your Login Credentials:\n" +
-//                    "Email: " + employee.getEmail() + "\n" +
-//                    "Password: " + password + "\n\n" +
-//                    "Please login and change your password immediately.\n\n" +
-//                    "Login URL: http://localhost:8080/auth/login\n\n" +
-//                    "Best regards,\n" +
-//                    factoryName + " Management Team";
-//
-//            emailService.sendEmail(employee.getEmail(), subject, message);
-//        } catch (Exception e) {
-//            System.err.println("Failed to send welcome email: " + e.getMessage());
-//        }
-//    }
-//
-//
-//}
+package com.example.inventory_factory_management.service;
+
+import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.constants.Role;
+import com.example.inventory_factory_management.constants.AccountStatus;
+import com.example.inventory_factory_management.entity.Factory;
+import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.entity.UserFactory;
+import com.example.inventory_factory_management.repository.UserFactoryRepository;
+import com.example.inventory_factory_management.repository.UserRepository;
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+public class ManagerService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserFactoryRepository userFactoryRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EmailService emailService;
+
+
+    @Autowired
+    private EmployeeService employeeService; // Reuse existing service
+
+    @Autowired
+    private FactoryService factoryService;
+
+    // Create a new manager
+    @Transactional
+    public BaseResponseDTO<UserDTO> createManager(UserDTO managerDTO) {
+        try {
+            // Validate input
+            if (managerDTO.getEmail() == null || managerDTO.getEmail().trim().isEmpty()) {
+                return BaseResponseDTO.error("Manager email is required");
+            }
+
+            if (managerDTO.getUsername() == null || managerDTO.getUsername().trim().isEmpty()) {
+                return BaseResponseDTO.error("Manager username is required");
+            }
+
+            // Check if email already exists
+            if (userRepository.findByEmail(managerDTO.getEmail()).isPresent()) {
+                return BaseResponseDTO.error("User with email '" + managerDTO.getEmail() + "' already exists");
+            }
+
+            // Check if username already exists for manager
+            Optional<User> existingManager = userRepository.findByUsernameAndRole(managerDTO.getUsername(), Role.MANAGER);
+            if (existingManager.isPresent()) {
+                return BaseResponseDTO.error("Manager with username '" + managerDTO.getUsername() + "' already exists");
+            }
+
+            // Create new manager
+            User newManager = new User();
+            newManager.setUsername(managerDTO.getUsername());
+            newManager.setEmail(managerDTO.getEmail());
+
+            if (managerDTO.getPhone() != null && !managerDTO.getPhone().trim().isEmpty()) {
+                newManager.setPhone(Long.parseLong(managerDTO.getPhone()));
+            }
+
+            newManager.setRole(Role.MANAGER);
+            newManager.setStatus(AccountStatus.ACTIVE);
+
+            // Generate password
+            String generatedPassword = generatePassword(managerDTO.getUsername(), managerDTO.getPhone());
+            newManager.setPassword(passwordEncoder.encode(generatedPassword));
+
+            newManager.setCreatedAt(LocalDateTime.now());
+            newManager.setUpdatedAt(LocalDateTime.now());
+
+            User savedManager = userRepository.save(newManager);
+
+            // Send welcome email
+            sendManagerWelcomeEmail(savedManager, generatedPassword);
+
+            UserDTO responseDTO = convertToUserDTO(savedManager);
+            return BaseResponseDTO.success("Manager created successfully", responseDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to create manager: " + e.getMessage());
+        }
+    }
+
+//    // Get all managers with pagination and filtering
+    public BaseResponseDTO<Page<UserDTO>> getAllManagers(String search, String status, BaseRequestDTO request) {
+        try {
+            Pageable pageable = createPageable(request); // Use the helper method
+
+            // Build specification for filtering
+            Specification<User> spec = createRoleSpecification();
+
+            // Add search filter
+            if (search != null && !search.trim().isEmpty()) {
+                Specification<User> searchSpec = createSearchSpecification(search);
+                spec = spec.and(searchSpec);
+            }
+
+            // Add status filter
+            if (status != null && !status.trim().isEmpty()) {
+                Specification<User> statusSpec = createStatusSpecification(status);
+                if (statusSpec != null) {
+                    spec = spec.and(statusSpec);
+                }
+            }
+
+            Page<User> managerPage = userRepository.findAll(spec, pageable);
+            Page<UserDTO> dtoPage = managerPage.map(this::convertToUserDTO);
+
+            return BaseResponseDTO.success("Managers retrieved successfully", dtoPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to retrieve managers: " + e.getMessage());
+        }
+    }
+
+    // Get manager by ID
+    public BaseResponseDTO<UserDTO> getManagerById(Long managerId) {
+        try {
+            User manager = userRepository.findById(managerId)
+                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+            if (manager.getRole() != Role.MANAGER) {
+                return BaseResponseDTO.error("User is not a manager");
+            }
+
+            UserDTO responseDTO = convertToUserDTO(manager);
+            return BaseResponseDTO.success("Manager retrieved successfully", responseDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to get manager: " + e.getMessage());
+        }
+    }
+
+    // Get manager by exact name
+    public BaseResponseDTO<UserDTO> getManagerByName(String managerName) {
+        try {
+            User manager = userRepository.findByUsernameAndRole(managerName, Role.MANAGER)
+                    .orElseThrow(() -> new RuntimeException("Manager not found with name: " + managerName));
+
+            UserDTO responseDTO = convertToUserDTO(manager);
+            return BaseResponseDTO.success("Manager retrieved successfully", responseDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to get manager: " + e.getMessage());
+        }
+    }
+
+    // Search managers by name (partial match)
+    public BaseResponseDTO<Page<UserDTO>> searchManagersByName(String managerName, BaseRequestDTO request) {
+        try {
+            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+
+            // Search for managers with username containing the search term
+            List<User> managers = userRepository.findByUsernameContainingIgnoreCaseAndRole(managerName, Role.MANAGER);
+
+            Page<UserDTO> dtoPage = new org.springframework.data.domain.PageImpl<>(
+                    managers.stream().map(this::convertToUserDTO).collect(Collectors.toList()),
+                    pageable,
+                    managers.size()
+            );
+
+            return BaseResponseDTO.success("Managers search completed successfully", dtoPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to search managers: " + e.getMessage());
+        }
+    }
+
+    // Update manager details
+    @Transactional
+    public BaseResponseDTO<UserDTO> updateManager(Long managerId, UserUpdateDTO managerDTO) {
+        try {
+            User manager = userRepository.findById(managerId)
+                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+            if (manager.getRole() != Role.MANAGER) {
+                return BaseResponseDTO.error("User is not a manager");
+            }
+
+            // Update fields if provided
+            if (managerDTO.getUsername() != null && !managerDTO.getUsername().trim().isEmpty()) {
+                // Check if new username already exists for another manager
+                Optional<User> existingManager = userRepository.findByUsernameAndRole(managerDTO.getUsername(), Role.MANAGER);
+                if (existingManager.isPresent() && !existingManager.get().getUserId().equals(managerId)) {
+                    return BaseResponseDTO.error("Manager with username '" + managerDTO.getUsername() + "' already exists");
+                }
+                manager.setUsername(managerDTO.getUsername());
+            }
+
+            if (managerDTO.getEmail() != null && !managerDTO.getEmail().equals(manager.getEmail())) {
+                if (userRepository.findByEmail(managerDTO.getEmail()).isPresent()) {
+                    return BaseResponseDTO.error("Email already exists");
+                }
+                manager.setEmail(managerDTO.getEmail());
+            }
+
+            if (managerDTO.getPhone() != null && !managerDTO.getPhone().trim().isEmpty()) {
+                manager.setPhone(Long.parseLong(managerDTO.getPhone()));
+            }
+
+            if (managerDTO.getImg() != null) {
+                manager.setImg(managerDTO.getImg());
+            }
+
+            manager.setUpdatedAt(LocalDateTime.now());
+            User updatedManager = userRepository.save(manager);
+
+            UserDTO responseDTO = convertToUserDTO(updatedManager);
+            return BaseResponseDTO.success("Manager updated successfully", responseDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to update manager: " + e.getMessage());
+        }
+    }
+
+    // Delete manager (soft delete)
+    @Transactional
+    public BaseResponseDTO<String> deleteManager(Long managerId) {
+        try {
+            User manager = userRepository.findById(managerId)
+                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+            if (manager.getRole() != Role.MANAGER) {
+                return BaseResponseDTO.error("User is not a manager");
+            }
+
+            // Check if manager is assigned to any active factories
+            List<UserFactory> managerFactories = userFactoryRepository.findByUser(manager);
+            boolean hasActiveFactories = managerFactories.stream()
+                    .anyMatch(uf -> uf.getFactory().getStatus() == AccountStatus.ACTIVE);
+
+            if (hasActiveFactories) {
+                return BaseResponseDTO.error("Cannot delete manager who is assigned to active factories. Please reassign factories first.");
+            }
+
+            // Soft delete manager
+            manager.setStatus(AccountStatus.INACTIVE);
+            manager.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(manager);
+
+            return BaseResponseDTO.success("Manager deleted successfully");
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to delete manager: " + e.getMessage());
+        }
+    }
+
+    // Toggle manager status
+    @Transactional
+    public BaseResponseDTO<String> toggleManagerStatus(Long managerId) {
+        try {
+            User manager = userRepository.findById(managerId)
+                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+            if (manager.getRole() != Role.MANAGER) {
+                return BaseResponseDTO.error("User is not a manager");
+            }
+
+            // Toggle status
+            AccountStatus newStatus = (manager.getStatus() == AccountStatus.ACTIVE)
+                    ? AccountStatus.INACTIVE
+                    : AccountStatus.ACTIVE;
+
+            manager.setStatus(newStatus);
+            manager.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(manager);
+
+            String action = (newStatus == AccountStatus.ACTIVE) ? "activated" : "deactivated";
+            return BaseResponseDTO.success("Manager " + action + " successfully");
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to toggle manager status: " + e.getMessage());
+        }
+    }
+
+    // Get available managers (without factory assignment or with inactive factories only)
+    public BaseResponseDTO<Page<UserDTO>> getAvailableManagers(BaseRequestDTO request) {
+        try {
+            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+
+            // Get all active managers
+            Specification<User> spec = createRoleSpecification().and(createStatusSpecification("ACTIVE"));
+            Page<User> activeManagers = userRepository.findAll(spec, pageable);
+
+            // Filter managers who are not assigned to any active factory
+            List<User> availableManagers = activeManagers.getContent().stream()
+                    .filter(manager -> {
+                        List<UserFactory> managerFactories = userFactoryRepository.findByUser(manager);
+                        return managerFactories.stream()
+                                .noneMatch(uf -> uf.getFactory().getStatus() == AccountStatus.ACTIVE);
+                    })
+                    .collect(Collectors.toList());
+
+            Page<UserDTO> dtoPage = new org.springframework.data.domain.PageImpl<>(
+                    availableManagers.stream().map(this::convertToUserDTO).collect(Collectors.toList()),
+                    pageable,
+                    availableManagers.size()
+            );
+
+            return BaseResponseDTO.success("Available managers retrieved successfully", dtoPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to get available managers: " + e.getMessage());
+        }
+    }
+
+    // Helper methods for specifications
+    private Specification<User> createRoleSpecification() {
+        return (root, query, cb) -> cb.equal(root.get("role"), Role.MANAGER);
+    }
+
+    private Specification<User> createSearchSpecification(String search) {
+        return (root, query, cb) ->
+                cb.or(
+                        cb.like(cb.lower(root.get("username")), "%" + search.toLowerCase() + "%"),
+                        cb.like(cb.lower(root.get("email")), "%" + search.toLowerCase() + "%")
+                );
+    }
+
+    private Specification<User> createStatusSpecification(String status) {
+        try {
+            AccountStatus accountStatus = AccountStatus.valueOf(status.toUpperCase());
+            return (root, query, cb) -> cb.equal(root.get("status"), accountStatus);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+
+    private String generatePassword(String username, String phone) {
+        String phonePart = phone != null ? phone.substring(0, Math.min(7, phone.length())) : "1234567";
+        return username.substring(0, Math.min(3, username.length())) + "@" + phonePart;
+    }
+
+    private void sendManagerWelcomeEmail(User manager, String password) {
+        try {
+            String subject = "Welcome to Inventory Factory Management System - Manager Account Created";
+            String message = "Dear " + manager.getUsername() + ",\n\n" +
+                    "Your manager account has been created successfully.\n\n" +
+                    "Your Login Credentials:\n" +
+                    "Email: " + manager.getEmail() + "\n" +
+                    "Password: " + password + "\n\n" +
+                    "Please login and change your password immediately.\n\n" +
+                    "Login URL: http://localhost:8080/auth/login\n\n" +
+                    "Best regards,\n" +
+                    "Inventory Factory Management Team";
+
+            emailService.sendEmail(manager.getEmail(), subject, message);
+        } catch (Exception e) {
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+        }
+    }
+
+
+    public BaseResponseDTO<FactoryDTO> getManagerFactory() {
+        try {
+            String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+            User currentManager = userRepository.findByEmail(currentUsername)
+                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+            Optional<UserFactory> managerFactoryRelation = userFactoryRepository
+                    .findByUserAndUserRoleAndStatus(currentManager, Role.MANAGER, AccountStatus.ACTIVE);
+
+            if (managerFactoryRelation.isEmpty()) {
+                return BaseResponseDTO.error("No factory assigned to this manager");
+            }
+
+            Factory managerFactory = managerFactoryRelation.get().getFactory();
+            FactoryDTO factoryDTO = convertToDetailedDTO(managerFactory);
+
+            return BaseResponseDTO.success("Factory details retrieved successfully", factoryDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to get factory details: " + e.getMessage());
+        }
+    }
+
+    private FactoryDTO convertToDetailedDTO(Factory factory) {
+        FactoryDTO dto = new FactoryDTO();
+        dto.setFactoryId(factory.getFactoryId());
+        dto.setName(factory.getName());
+        dto.setCity(factory.getCity());
+        dto.setAddress(factory.getAddress());
+        dto.setStatus(factory.getStatus());
+
+        if (factory.getPlantHead() != null) {
+            dto.setPlantHead(convertUserToDTO(factory.getPlantHead()));
+        }
+
+        dto.setCreatedAt(factory.getCreatedAt());
+        dto.setUpdatedAt(factory.getUpdatedAt());
+        return dto;
+    }
+
+    // Helper methods
+    private UserDTO convertToUserDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setUserId(user.getUserId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setImg(user.getImg());
+        dto.setPhone(user.getPhone() != null ? user.getPhone().toString() : null);
+        dto.setRole(user.getRole());
+        dto.setStatus(user.getStatus());
+        dto.setCreatedAt(user.getCreatedAt());
+        dto.setUpdatedAt(user.getUpdatedAt());
+
+        // Set factory information if available
+        List<UserFactory> userFactories = userFactoryRepository.findByUser(user);
+        if (!userFactories.isEmpty()) {
+            // Get the first active factory assignment
+            UserFactory userFactoryRel = userFactories.stream()
+                    .filter(uf -> uf.getFactory().getStatus() == AccountStatus.ACTIVE)
+                    .findFirst()
+                    .orElse(userFactories.get(0));
+
+            if (userFactoryRel.getFactory() != null) {
+                dto.setFactoryId(userFactoryRel.getFactory().getFactoryId());
+                dto.setFactoryName(userFactoryRel.getFactory().getName());
+                dto.setFactoryRole(userFactoryRel.getUserRole());
+            }
+        }
+
+        return dto;
+    }
+
+    private UserDTO convertUserToDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setUserId(user.getUserId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setImg(user.getImg());
+        dto.setPhone(user.getPhone().toString());
+        dto.setRole(user.getRole());
+        dto.setStatus(user.getStatus());
+        dto.setCreatedAt(user.getCreatedAt());
+        dto.setUpdatedAt(user.getUpdatedAt());
+        return dto;
+    }
+
+    // Add this helper method to ManagerService
+    private Pageable createPageable(BaseRequestDTO request) {
+        Sort sort = createSort(request.getSortBy(), request.getSortDirection());
+        return PageRequest.of(request.getPage(), request.getSize(), sort);
+    }
+
+    private Sort createSort(String sortBy, String sortDirection) {
+        if (sortBy == null || sortBy.trim().isEmpty()) {
+            sortBy = "createdAt";
+        }
+
+        if (sortDirection == null || sortDirection.trim().isEmpty()) {
+            sortDirection = "DESC";
+        }
+
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ?
+                Sort.Direction.ASC : Sort.Direction.DESC;
+
+        return Sort.by(direction, sortBy);
+    }
+
+}

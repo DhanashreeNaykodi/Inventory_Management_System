@@ -1,28 +1,27 @@
 package com.example.inventory_factory_management.utils;
 
 import com.example.inventory_factory_management.constants.Role;
-import com.example.inventory_factory_management.entity.user;
-import com.example.inventory_factory_management.entity.userFactory;
-import com.example.inventory_factory_management.repository.userFactoryRepository;
-import com.example.inventory_factory_management.repository.userRepository;
+import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.entity.UserFactory;
+import com.example.inventory_factory_management.repository.UserFactoryRepository;
+import com.example.inventory_factory_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class SecurityUtil {
 
     @Autowired
-    private userRepository userRepository;
+    private UserRepository userRepository;
 
     @Autowired
-    private userFactoryRepository userFactoryRepository;
+    private UserFactoryRepository userFactoryRepository;
 
-    public user getCurrentUser() {
+    public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
@@ -38,12 +37,12 @@ public class SecurityUtil {
     }
 
     public boolean isManagerOrOwner() {
-        user currentUser = getCurrentUser();
+        User currentUser = getCurrentUser();
         return currentUser.getRole() == Role.MANAGER || currentUser.getRole() == Role.OWNER;
     }
 
     public boolean hasAccessToFactory(Long factoryId) {
-        user currentUser = getCurrentUser();
+        User currentUser = getCurrentUser();
 
         // OWNER has access to all factories
         if (currentUser.getRole() == Role.OWNER) {
@@ -60,7 +59,7 @@ public class SecurityUtil {
     }
 
     public boolean canManageEmployee(Long employeeId) {
-        user currentUser = getCurrentUser();
+        User currentUser = getCurrentUser();
 
         // OWNER can manage any employee
         if (currentUser.getRole() == Role.OWNER) {
@@ -69,10 +68,10 @@ public class SecurityUtil {
 
         // MANAGER can only manage employees in their factories
         if (currentUser.getRole() == Role.MANAGER) {
-            user employee = userRepository.findById(employeeId)
+            User employee = userRepository.findById(employeeId)
                     .orElseThrow(() -> new RuntimeException("Employee not found"));
 
-            List<userFactory> employeeFactories = userFactoryRepository.findByUser(employee);
+            List<UserFactory> employeeFactories = userFactoryRepository.findByUser(employee);
             if (employeeFactories.isEmpty()) {
                 return false;
             }
@@ -82,5 +81,21 @@ public class SecurityUtil {
         }
 
         return false;
+    }
+
+    public Long getCurrentUserFactoryId() {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() == Role.MANAGER) {
+            // Get manager's assigned factory
+//            List<userFactory> userFactories = userFactoryRepository.findByUserId(currentUser.getId());
+            List<UserFactory> userFactories = userFactoryRepository.findByUser(currentUser);
+            if (!userFactories.isEmpty()) {
+//                return userFactories.get(0).getFactory().getId(); // Assuming one factory per manager
+                return userFactories.get(0).getFactory().getFactoryId();
+            }
+        }
+
+        return null;
     }
 }

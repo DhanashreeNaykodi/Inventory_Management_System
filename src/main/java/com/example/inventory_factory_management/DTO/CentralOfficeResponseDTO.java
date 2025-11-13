@@ -1,6 +1,5 @@
 package com.example.inventory_factory_management.DTO;
 
-import com.example.inventory_factory_management.entity.user;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

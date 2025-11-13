@@ -1,8 +1,8 @@
 package com.example.inventory_factory_management.repository;
 
-import com.example.inventory_factory_management.entity.centralOffice;
-import com.example.inventory_factory_management.entity.user;
-import com.example.inventory_factory_management.entity.users_centralOffice;
+import com.example.inventory_factory_management.entity.CentralOffice;
+import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.entity.UserCentralOffice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,13 +10,13 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserCentralOfficeRepository extends JpaRepository<users_centralOffice, Long> {
-    List<users_centralOffice> findByOffice(centralOffice office);
-    Optional<users_centralOffice> findByUser(user user);
-    boolean existsByUser(user user);
+public interface UserCentralOfficeRepository extends JpaRepository<UserCentralOffice, Long> {
+    List<UserCentralOffice> findByOffice(CentralOffice office);
+    Optional<UserCentralOffice> findByUser(User user);
+    boolean existsByUser(User user);
 
-    boolean existsByUserAndOffice(user officer, centralOffice office);
+    boolean existsByUserAndOffice(User officer, CentralOffice office);
 
-    Optional<users_centralOffice> findByUserAndOffice(user user, centralOffice office);
+    Optional<UserCentralOffice> findByUserAndOffice(User user, CentralOffice office);
 
 }
