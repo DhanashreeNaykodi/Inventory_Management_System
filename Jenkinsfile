@@ -43,7 +43,7 @@ pipeline {
                 withSonarQubeEnv('Sonar') { 
                sh '''
                 mvn sonar:sonar \
-                    -Dsonar.projectKey=inventory_iosbackend \
+                    -Dsonar.projectKey=inventory_factory_management \
                     -Dsonar.host.url=$SONAR_HOST_URL \
                     -Dsonar.login=$SONAR_AUTH_TOKEN
             '''
@@ -76,18 +76,18 @@ pipeline {
                     sudo docker pull ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
                     sudo docker stop javacont || true
                     sudo docker rm javacont || true
-                    sudo docker run -d --name javacont -p 8001:8080 \\
-                    -e MAIL_HOST=${MAIL_HOST}
-                    -e MAIL_PORT=${MAIL_PORT} \\
-                    -e MAIL_USERNAME=${MAIL_USERNAME} \\
-                    -e MAIL_PASS=${MAIL_PASS} \\
-                    -e SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL} \\
-                    -e SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME} \\
-                    -e SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD} \\
-                    -e JWT_SECRET=${JWT_SECRET} \\
-                    -e CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-                    -e CLOUDINARY_API_KEY=${CLOUDINARY_SECRET_KEY}
-                    -e CLOUDINARY_SECRET_KEY= ${CLOUDINARY_API_KEY}
+                    sudo docker run -d --name javacont -p 8080:8080 \\
+                    -e MAIL_HOST=\${MAIL_HOST}
+                    -e MAIL_PORT=\${MAIL_PORT} \\
+                    -e MAIL_USERNAME=\${MAIL_USERNAME} \\
+                    -e MAIL_PASS=\${MAIL_PASS} \\
+                    -e SPRING_DATASOURCE_URL=\${SPRING_DATASOURCE_URL} \\
+                    -e SPRING_DATASOURCE_USERNAME=\${SPRING_DATASOURCE_USERNAME} \\
+                    -e SPRING_DATASOURCE_PASSWORD=\${SPRING_DATASOURCE_PASSWORD} \\
+                    -e JWT_SECRET=\${JWT_SECRET} \\
+                    -e CLOUDINARY_CLOUD_NAME=\${CLOUDINARY_CLOUD_NAME}
+                    -e CLOUDINARY_API_KEY=\${CLOUDINARY_SECRET_KEY}
+                    -e CLOUDINARY_SECRET_KEY=\${CLOUDINARY_API_KEY}
                     ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
 
                     \"
