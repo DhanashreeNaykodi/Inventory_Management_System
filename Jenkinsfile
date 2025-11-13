@@ -66,41 +66,25 @@ pipeline {
 
         
         stage('Docker container run') {
-    steps {
-        withCredentials([string(credentialsId: 'ios_creds', variable: 'IOS_CREDS')]) {
-            sh '''#!/bin/bash
-            export $(echo "$IOS_CREDS" | xargs)
-            ssh -i /home/ubuntu/new-key -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} \"
-                set -e
-                aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
-                docker pull ${ECR_URI}/iosbackend:${BUILD_NUMBER}
-                sudo docker stop ioscont || true
-                sudo docker rm ioscont || true
-                sudo docker run -d --name ioscont -p 8080:8080 \\
-                    -e MAIL_HOST=${MAIL_HOST} \\
-                    -e MAIL_PORT=${MAIL_PORT} \\
-                    -e MAIL_USERNAME=${MAIL_USERNAME} \\
-                    -e MAIL_PASS=${MAIL_PASS} \\
-                    -e SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL} \\
-                    -e SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME} \\
-                    -e SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD} \\
-                    -e JWT_SECRET=${JWT_SECRET} \\
-                    -e CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME} \\
-                    -e CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY} \\
-                    -e CLOUDINARY_SECRET_KEY=${CLOUDINARY_SECRET_KEY} \\
-                    ${ECR_URI}/iosbackend:${BUILD_NUMBER}
-                \"
-            '''
+            steps {
+                
+                steps {
+                    sh '''
+                    ssh -i /home/ubuntu/new-key -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
+                        bash /home/ubuntu/deploy.sh ${ECR_URI} ${BUILD_NUMBER}
+                    '
+                    '''
+    }
+                }
+            }
         }
-    }
-}
 
 
 
-        
+                
 
-    }
+            }
 
-    
+            
 
-}
+        }
