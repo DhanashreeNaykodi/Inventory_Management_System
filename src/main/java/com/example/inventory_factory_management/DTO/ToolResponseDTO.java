@@ -1,7 +1,6 @@
 package com.example.inventory_factory_management.DTO;
 
 import com.example.inventory_factory_management.constants.expensive;
-import com.project.supply.chain.management.constants.Expensive;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
