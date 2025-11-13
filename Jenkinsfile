@@ -72,8 +72,8 @@ pipeline {
             export $(echo "$IOS_CREDS" | xargs)
             ssh -i /home/ubuntu/new-key -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} \"
                 set -e
-                sudo aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
-                sudo docker pull ${ECR_URI}/iosbackend:${BUILD_NUMBER}
+                aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
+                docker pull ${ECR_URI}/iosbackend:${BUILD_NUMBER}
                 sudo docker stop ioscont || true
                 sudo docker rm ioscont || true
                 sudo docker run -d --name ioscont -p 8080:8080 \\
