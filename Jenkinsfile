@@ -69,7 +69,7 @@ pipeline {
                  withCredentials([string(credentialsId: 'ios_creds', variable: 'IOS_CREDS')]){
                 sh """
                 set -a
-                source <(echo "$IOS_CREDS)
+                source <(echo "$IOS_CREDS")
                 set +a
                 ssh -i /home/ubuntu/new-key.pem ubuntu@${SERVER_IP} \"
                     aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
