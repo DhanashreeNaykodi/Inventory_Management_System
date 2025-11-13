@@ -53,13 +53,13 @@ pipeline {
 
         stage('Build docker image and push to ECR') {
             steps {
-                sh '''
+                sh """
                     aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
                     sudo docker build -t iosbackend:${env.BUILD_NUMBER} .
                     sudo docker tag iosbackend:${env.BUILD_NUMBER} ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
                     sudo docker push ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
 
-                '''
+                """
             }
 
         }
@@ -67,7 +67,7 @@ pipeline {
         stage('Docker container run'){
             steps {
                  withCredentials([string(credentialsId: 'ios_creds', variable: 'IOS_CREDS')]){
-                sh '''
+                sh """
                 set -a
                 source <(echo "$IOS_CREDS)
                 set +a
@@ -91,7 +91,7 @@ pipeline {
                     ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
 
                     \"
-                '''
+                """
 
             }
             }
