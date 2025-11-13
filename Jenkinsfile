@@ -73,10 +73,10 @@ pipeline {
 
             sudo ssh -o StrictHostKeyChecking=no -i /home/ubuntu/new-key ubuntu@${SERVER_IP}  \"
                 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
-                sudo docker pull ${ECR_URI}/iosbackend:${BUILD_NUMBER}
-                sudo docker stop javacont || true
-                sudo docker rm javacont || true
-                sudo docker run -d --name javacont -p 8080:8080 \
+                sudo docker pull ${ECR_URI}/iosbackend:${env.BUILD_NUMBER}
+                sudo docker stop ioscont || true
+                sudo docker rm ioscont || true
+                sudo docker run -d --name ioscont -p 8080:8080 \
                     -e MAIL_HOST=$MAIL_HOST \
                     -e MAIL_PORT=$MAIL_PORT \
                     -e MAIL_USERNAME=$MAIL_USERNAME \
