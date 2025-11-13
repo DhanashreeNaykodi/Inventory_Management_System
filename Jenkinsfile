@@ -67,7 +67,7 @@ pipeline {
         stage('Docker container run'){
             steps {
                  withCredentials([string(credentialsId: 'ios_creds', variable: 'IOS_CREDS')]){
-                sh """
+                sh """ #!/bin/bash
                 set -a
                 source <(echo "$IOS_CREDS")
                 set +a
