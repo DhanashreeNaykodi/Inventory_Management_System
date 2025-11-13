@@ -78,7 +78,7 @@ pipeline {
                     sudo docker rm javacont || true
                     sudo docker run -d --name javacont -p 8001:8080 \\
                     -e MAIL_HOST=${MAIL_HOST}
-                    -e  MAIL_PORT=587 \\
+                    -e MAIL_PORT=587 \\
                     -e MAIL_USERNAME=${MAIL_USERNAME} \\
                     -e MAIL_PASS=${MAIL_PASS} \\
                     -e SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL} \\
