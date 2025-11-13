@@ -71,7 +71,7 @@ pipeline {
             sh '''#!/bin/bash
             export $(echo "$IOS_CREDS" | xargs)
 
-            ssh -i /home/ubuntu/new-key.pem ubuntu@${SERVER_IP} "
+            ssh -i /home/ubuntu/new-key ubuntu@${SERVER_IP} "
                 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${ECR_URI}
                 sudo docker pull ${ECR_URI}/iosbackend:${BUILD_NUMBER}
                 sudo docker stop javacont || true
