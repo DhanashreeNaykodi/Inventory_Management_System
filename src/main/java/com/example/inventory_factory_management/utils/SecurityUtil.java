@@ -36,6 +36,11 @@ public class SecurityUtil {
         return getCurrentUser().getUserId();
     }
 
+    public boolean isManager() {
+        User currentUser = getCurrentUser();
+        return currentUser.getRole() == Role.MANAGER;
+    }
+
     public boolean isManagerOrOwner() {
         User currentUser = getCurrentUser();
         return currentUser.getRole() == Role.MANAGER || currentUser.getRole() == Role.OWNER;

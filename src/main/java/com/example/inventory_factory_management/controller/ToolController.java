@@ -1,12 +1,12 @@
 package com.example.inventory_factory_management.controller;
 
 
-import com.example.inventory_factory_management.DTO.AddToolCategoryDTO;
-import com.example.inventory_factory_management.DTO.BaseResponseDTO;
-import com.example.inventory_factory_management.DTO.ToolCategoryDTO;
+import com.example.inventory_factory_management.dto.AddToolCategoryDTO;
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import com.example.inventory_factory_management.dto.ToolCategoryDTO;
 import com.example.inventory_factory_management.service.ToolCategoryService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,7 +20,9 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ToolController {
 
-    private final ToolCategoryService toolCategoryService;
+
+    @Autowired
+    private ToolCategoryService toolCategoryService;
 
 
     @GetMapping("/tool-categories")

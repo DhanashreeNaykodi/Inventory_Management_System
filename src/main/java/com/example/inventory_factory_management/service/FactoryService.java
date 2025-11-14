@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.Factory;
@@ -9,6 +9,7 @@ import com.example.inventory_factory_management.entity.UserFactory;
 import com.example.inventory_factory_management.repository.FactoryRepository;
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
+import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -56,7 +57,8 @@ public class FactoryService {
     public BaseResponseDTO<Page<FactoryDTO>> getAllFactories(BaseRequestDTO request) {
         try {
             // Create pageable with sorting
-            Pageable pageable = createPageable(request);
+//            Pageable pageable = createPageable(request);
+            Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findAll(pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
             return BaseResponseDTO.success("Factories retrieved successfully", dtoPage);
@@ -68,7 +70,8 @@ public class FactoryService {
 
     public BaseResponseDTO<Page<FactoryDTO>> getFactoriesByCity(String city, BaseRequestDTO request) {
         try {
-            Pageable pageable = createPageable(request); // Use the helper method
+//            Pageable pageable = createPageable(request);
+            Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findByCityAndStatus(city, AccountStatus.ACTIVE, pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
 
@@ -80,7 +83,8 @@ public class FactoryService {
 
     public BaseResponseDTO<Page<FactoryDTO>> searchFactoriesByName(String name, BaseRequestDTO request) {
         try {
-            Pageable pageable = createPageable(request); // Use the helper method
+//            Pageable pageable = createPageable(request);
+            Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findByNameContainingIgnoreCase(name, pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
 
@@ -93,7 +97,9 @@ public class FactoryService {
 
     public BaseResponseDTO<Page<UserDTO>> getAllManagers(BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
+
             Page<User> managerPage = userRepository.findByRole(Role.MANAGER, pageable);
             Page<UserDTO> dtoPage = managerPage.map(this::convertUserToDTO);
 
@@ -183,7 +189,6 @@ public class FactoryService {
                 return BaseResponseDTO.error("Factory name is required");
             }
 
-            // FIX: Check for plantHead instead of manager
             if (factoryDTO.getPlantHead() == null && factoryDTO.getPlantHeadId() == null) {
                 return BaseResponseDTO.error("Plant head details are required"); // Updated error message
             }
@@ -205,14 +210,12 @@ public class FactoryService {
                     return BaseResponseDTO.error("User with id " + factoryDTO.getPlantHeadId() + " is not a manager");
                 }
 
-                // ============ ADD VALIDATION: Check if manager is already assigned to a factory ============
                 boolean isManagerAssigned = userFactoryRepository.existsByUserAndUserRoleAndStatus(
                         plantHead, Role.MANAGER, AccountStatus.ACTIVE);
 
                 if (isManagerAssigned) {
                     return BaseResponseDTO.error("Manager is already assigned to another factory and cannot be reassigned");
                 }
-                // ============ END VALIDATION ============
             } else {
                 // Create new plant head from plantHead object
                 UserDTO plantHeadDetails = factoryDTO.getPlantHead();
@@ -254,9 +257,7 @@ public class FactoryService {
             userFactoryRelation.setUserRole(Role.MANAGER);
             userFactoryRepository.save(userFactoryRelation);
 
-            // ============ ADD EMAIL FUNCTIONALITY HERE ============
             sendManagerEmail(plantHead, savedFactory.getName(), generatedPassword, isNewManager);
-            // ============ END EMAIL FUNCTIONALITY ============
 
             FactoryDTO responseDTO = convertToDTO(savedFactory);
 
@@ -383,13 +384,10 @@ public class FactoryService {
                 isNewManager = true;
             }
 
-            // ✅ FIX 1: Update plant head first
             existingFactory.setPlantHead(newManager);
             existingFactory.setUpdatedAt(LocalDateTime.now());
             Factory updatedFactory = factoryRepository.save(existingFactory);
 
-            // ✅ FIX 2: Handle userFactory relationship properly
-            // First, deactivate any existing manager relationship for this factory
             Optional<UserFactory> existingManagerRelation = userFactoryRepository.findByFactoryAndUserRole(updatedFactory, Role.MANAGER);
             if (existingManagerRelation.isPresent()) {
                 UserFactory oldRelation = existingManagerRelation.get();
@@ -397,14 +395,12 @@ public class FactoryService {
                 userFactoryRepository.save(oldRelation);
             }
 
-            // ✅ FIX 3: Also deactivate any existing active relationship for this manager
             List<UserFactory> existingUserRelations = userFactoryRepository.findByUserAndStatus(newManager, AccountStatus.ACTIVE);
             for (UserFactory relation : existingUserRelations) {
                 relation.setStatus(AccountStatus.INACTIVE);
                 userFactoryRepository.save(relation);
             }
 
-            // ✅ FIX 4: Create new userFactory relationship with proper status
             UserFactory newRelation = new UserFactory();
             newRelation.setUser(newManager);
             newRelation.setFactory(updatedFactory);
@@ -413,7 +409,6 @@ public class FactoryService {
 
             UserFactory savedRelation = userFactoryRepository.save(newRelation);
 
-            // ✅ FIX 5: Send email
             sendManagerEmail(newManager, updatedFactory.getName(), generatedPassword, isNewManager);
 
             return BaseResponseDTO.success("Factory manager updated successfully", convertToDTO(updatedFactory));
@@ -612,25 +607,25 @@ public class FactoryService {
     }
 
     // Helper method to create Pageable with sorting
-    private Pageable createPageable(BaseRequestDTO request) {
-        Sort sort = createSort(request.getSortBy(), request.getSortDirection());
-        return PageRequest.of(request.getPage(), request.getSize(), sort);
-    }
-
-    // Helper method to create Sort
-    private Sort createSort(String sortBy, String sortDirection) {
-        if (sortBy == null || sortBy.trim().isEmpty()) {
-            sortBy = "createdAt"; // default sort field
-        }
-
-        if (sortDirection == null || sortDirection.trim().isEmpty()) {
-            sortDirection = "DESC"; // default sort direction
-        }
-
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ?
-                Sort.Direction.ASC : Sort.Direction.DESC;
-
-        return Sort.by(direction, sortBy);
-    }
+//    private Pageable createPageable(BaseRequestDTO request) {
+//        Sort sort = createSort(request.getSortBy(), request.getSortDirection());
+//        return PageRequest.of(request.getPage(), request.getSize(), sort);
+//    }
+//
+//    // Helper method to create Sort
+//    private Sort createSort(String sortBy, String sortDirection) {
+//        if (sortBy == null || sortBy.trim().isEmpty()) {
+//            sortBy = "createdAt"; // default sort field
+//        }
+//
+//        if (sortDirection == null || sortDirection.trim().isEmpty()) {
+//            sortDirection = "DESC"; // default sort direction
+//        }
+//
+//        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ?
+//                Sort.Direction.ASC : Sort.Direction.DESC;
+//
+//        return Sort.by(direction, sortBy);
+//    }
 
 }

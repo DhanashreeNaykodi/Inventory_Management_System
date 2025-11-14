@@ -1,7 +1,7 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.BaseResponseDTO;
-import com.example.inventory_factory_management.DTO.FactoryDTO;
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import com.example.inventory_factory_management.dto.FactoryDTO;
 import com.example.inventory_factory_management.service.ManagerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

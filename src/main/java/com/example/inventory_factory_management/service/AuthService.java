@@ -1,10 +1,10 @@
 package com.example.inventory_factory_management.service;
 
 
-import com.example.inventory_factory_management.DTO.BaseResponseDTO;
-import com.example.inventory_factory_management.DTO.LoginDTO;
-import com.example.inventory_factory_management.DTO.LoginResponseDTO;
-import com.example.inventory_factory_management.DTO.SignupDTO;
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import com.example.inventory_factory_management.dto.LoginDTO;
+import com.example.inventory_factory_management.dto.LoginResponseDTO;
+import com.example.inventory_factory_management.dto.SignupDTO;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.User;
@@ -79,6 +79,8 @@ public class AuthService {
         user1.setUsername(signupDto.getManager_name());
 
         user1.setRole(Role.DISTRIBUTOR);
+        user1.setPassword(passwordEncoder.encode(user1.getEmail().substring(0,5) + user1.getPhone().toString().substring(0,5))); //send pwd through mail to distr
+
         user1.setPassword(passwordEncoder.encode(user1.getEmail().substring(0,5) + user1.getPhone().toString().substring(0,5))); //send pwd through mail to distr
         user1.setStatus(AccountStatus.ACTIVE);
 

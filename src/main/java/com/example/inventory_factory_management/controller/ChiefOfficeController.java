@@ -1,7 +1,7 @@
 package com.example.inventory_factory_management.controller;
 
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.CentralOfficeService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +30,7 @@ public class ChiefOfficeController {
 
     @GetMapping("/central-officer")
     public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOfficers() {
-        return centralOfficeService.getCentralOffices();
+        return centralOfficeService.getCentralOfficers();
     }
 
 

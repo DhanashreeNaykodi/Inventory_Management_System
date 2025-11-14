@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.EmployeeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,6 +31,10 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     @GetMapping("/factories/bays")
     public BaseResponseDTO<List<BayDTO>> getBaysInFactory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection,
             @RequestParam(required = false) Long factoryId) {
         return employeeService.getBaysInFactory(factoryId);
     }
@@ -38,21 +42,31 @@ public class EmployeeController {
     // Get employees by factory ID
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     @GetMapping("/employees/factories/{factoryId}")
-    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(@PathVariable Long factoryId) {
+    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection,
+            @PathVariable Long factoryId) {
         return employeeService.getEmployeesByFactoryId(factoryId);
     }
 
     // Get employees by factory name
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    @GetMapping("/employees/factories/name/{factoryName}")
-    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(@PathVariable String factoryName) {
-        return employeeService.getEmployeesByFactoryName(factoryName);
-    }
+//    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+//    @GetMapping("/employees/factories/name/{factoryName}")
+//    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(@PathVariable String factoryName) {
+//        return employeeService.getEmployeesByFactoryName(factoryName);
+//    }
 
     // Get manager's own factory employees
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/employees/my-factory")
-    public BaseResponseDTO<EmployeeResponseDTO> getMyFactoryEmployees() {
+    public BaseResponseDTO<EmployeeResponseDTO> getMyFactoryEmployees(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
+    ) {
         return employeeService.getEmployeesByFactoryId(null);
     }
 
@@ -63,8 +77,8 @@ public class EmployeeController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) Long factoryId,
-            @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "50") Integer size) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
         EmployeeFilterDTO filterDTO = new EmployeeFilterDTO(search, role, factoryId, page, size);
         return employeeService.getAllEmployees(filterDTO);

@@ -1,13 +1,14 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
-import com.example.inventory_factory_management.Specifications.ProductCategorySpecifications;
-import com.example.inventory_factory_management.Specifications.ProductSpecification;
+import com.example.inventory_factory_management.dto.*;
+import com.example.inventory_factory_management.specifications.ProductCategorySpecifications;
+import com.example.inventory_factory_management.specifications.ProductSpecification;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.Product;
 import com.example.inventory_factory_management.entity.ProductCategory;
 import com.example.inventory_factory_management.repository.ProductCategoryRepository;
 import com.example.inventory_factory_management.repository.ProductRepository;
+import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -252,7 +253,7 @@ public class ProductService {
             newProduct.setRewardPts(productDTO.getRewardPts());
             newProduct.setCategory(category);
 
-            // ✅ Set default image if no image provided
+            // Set default image if no image provided
             if (productDTO.getImage() != null && !productDTO.getImage().trim().isEmpty()) {
                 newProduct.setImage(productDTO.getImage()); // Use provided image URL
             } else {
@@ -269,7 +270,6 @@ public class ProductService {
         }
     }
 
-    // ✅ NEW: Upload image for existing product
     public BaseResponseDTO<?> uploadProductImage(Long productId, MultipartFile imageFile) {
         try {
             // Find existing product
@@ -300,7 +300,8 @@ public class ProductService {
 
     public BaseResponseDTO<Page<ProductDTO>> getAllProducts(BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
             Page<Product> productPage = productRepository.findByStatus(AccountStatus.ACTIVE, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
 
@@ -397,7 +398,8 @@ public class ProductService {
     // Get all products with filtering and searching
     public BaseResponseDTO<Page<ProductDTO>> getAllProducts(BaseRequestDTO request, String search, Long categoryId, String status) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
 
             // Convert status string to enum
             AccountStatus accountStatus = null;
@@ -429,7 +431,9 @@ public class ProductService {
     // Search products by name with pagination
     public BaseResponseDTO<Page<ProductDTO>> searchProductsByName(String search, BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
+
             Specification<Product> spec = ProductSpecification.withFilters(search, null, AccountStatus.ACTIVE);
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
@@ -442,7 +446,9 @@ public class ProductService {
     // Get products by category
     public BaseResponseDTO<Page<ProductDTO>> getProductsByCategory(Long categoryId, BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
+
             Specification<Product> spec = ProductSpecification.withFilters(null, categoryId, AccountStatus.ACTIVE);
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);

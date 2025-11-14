@@ -1,9 +1,10 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.BaseRequestDTO;
-import com.example.inventory_factory_management.DTO.BaseResponseDTO;
-import com.example.inventory_factory_management.DTO.CategoryDTO;
+import com.example.inventory_factory_management.dto.BaseRequestDTO;
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import com.example.inventory_factory_management.dto.CategoryDTO;
 import com.example.inventory_factory_management.service.ProductService;
+import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -75,11 +76,13 @@ public class ProductCategoryController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status) {
 
-        Pageable pageable = PageRequest.of(
-                request.getPage(),
-                request.getSize(),
-                Sort.by(Sort.Direction.fromString(request.getSortDirection()), request.getSortBy())
-        );
+//        Pageable pageable = PageRequest.of(
+//                request.getPage(),
+//                request.getSize(),
+//                Sort.by(Sort.Direction.fromString(request.getSortDirection()), request.getSortBy())
+//        );
+        Pageable pageable = PaginationUtil.toPageable(request);
+
         BaseResponseDTO<Page<CategoryDTO>> response = productService.getAllCategories(pageable, search, status);
         return ResponseEntity.ok(response);
     }

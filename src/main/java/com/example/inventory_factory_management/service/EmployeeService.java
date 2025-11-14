@@ -1,7 +1,7 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
-import com.example.inventory_factory_management.Specifications.UserSpecifications;
+import com.example.inventory_factory_management.dto.*;
+import com.example.inventory_factory_management.specifications.UserSpecifications;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.*;
@@ -127,51 +127,122 @@ public class EmployeeService {
     }
 
     // Get employees by factory ID
-    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factoryId) {
-        try {
-            User currentUser = securityUtils.getCurrentUser();
-            if (!securityUtils.isManagerOrOwner()) {
-                return BaseResponseDTO.error("Only managers or owners can access employee data");
+//    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factoryId) {
+//        try {
+//            User currentUser = securityUtils.getCurrentUser();
+//
+//            if (!securityUtils.hasAccessToFactory(factoryId)) {
+//                return BaseResponseDTO.error("Only managers or owners can access employee data");
+//            }
+//
+//            Long targetFactoryId = factoryId;
+//
+//            if (currentUser.getRole() == Role.MANAGER && factoryId == null) {
+////                targetFactoryId = getCurrentUserFactoryId();
+//                targetFactoryId = securityUtils.getCurrentUserFactoryId();
+//                if (targetFactoryId == null) {
+//                    return BaseResponseDTO.error("Manager is not assigned to any factory");
+//                }
+//            }
+//            else if (currentUser.getRole() == Role.MANAGER && factoryId != null) {
+//                if (!securityUtils.hasAccessToFactory(factoryId)) {
+//                    return BaseResponseDTO.error("You don't have access to this factory");
+//                }
+//                targetFactoryId = factoryId;
+//            }
+////            else if (currentUser.getRole() == Role.OWNER && factoryId == null) {
+////                return BaseResponseDTO.error("Factory ID is required for owner");
+////            }
+//
+//            List<UserFactory> factoryEmployees = userFactoryRepository.findByFactoryId(targetFactoryId);
+//
+//            List<EmployeeDetailDTO> employees = factoryEmployees.stream()
+//                    .map(uf -> convertToEmployeeDetailDTO(uf.getUser(), uf))
+//                    .collect(Collectors.toList());
+//
+//            EmployeeResponseDTO response = new EmployeeResponseDTO();
+//            response.setEmployees(employees);
+//            response.setTotalCount(employees.size());
+//            response.setFactoryId(targetFactoryId);
+//
+//            factoryRepository.findById(targetFactoryId)
+//                    .ifPresent(f -> response.setFactoryName(f.getName()));
+//
+//            return BaseResponseDTO.success("Employees fetched successfully", response);
+//
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to fetch employees: " + e.getMessage());
+//        }
+//    }
+
+
+// Get employees by factory ID
+public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factoryId) {
+    try {
+        User currentUser = securityUtils.getCurrentUser();
+
+        Long targetFactoryId;
+
+        // Manager-specific access restrictions
+        if (currentUser.getRole() == Role.MANAGER) {
+
+            // If no factoryId provided → use manager's own factory
+            Long managerFactoryId = securityUtils.getCurrentUserFactoryId();
+            if (managerFactoryId == null) {
+                return BaseResponseDTO.error("Manager is not assigned to any factory");
             }
 
-            Long targetFactoryId = factoryId;
-
-            if (currentUser.getRole() == Role.MANAGER && factoryId == null) {
-                targetFactoryId = getCurrentUserFactoryId();
-                if (targetFactoryId == null) {
-                    return BaseResponseDTO.error("Manager is not assigned to any factory");
-                }
-            }
-            else if (currentUser.getRole() == Role.MANAGER && factoryId != null) {
-                if (!securityUtils.hasAccessToFactory(factoryId)) {
+            if (factoryId == null) {
+                targetFactoryId = managerFactoryId;
+            } else {
+                // Manager provided a factoryId → ensure they have access
+                if (!managerFactoryId.equals(factoryId)) {
                     return BaseResponseDTO.error("You don't have access to this factory");
                 }
                 targetFactoryId = factoryId;
             }
-            else if (currentUser.getRole() == Role.OWNER && factoryId == null) {
-                return BaseResponseDTO.error("Factory ID is required for owner");
+        } else {
+            // Admin/Owner/Other roles → normal checks
+            if (!securityUtils.hasAccessToFactory(factoryId)) {
+                return BaseResponseDTO.error("You don't have access to this factory");
             }
-
-            List<UserFactory> factoryEmployees = userFactoryRepository.findByFactoryId(targetFactoryId);
-
-            List<EmployeeDetailDTO> employees = factoryEmployees.stream()
-                    .map(uf -> convertToEmployeeDetailDTO(uf.getUser(), uf))
-                    .collect(Collectors.toList());
-
-            EmployeeResponseDTO response = new EmployeeResponseDTO();
-            response.setEmployees(employees);
-            response.setTotalCount(employees.size());
-            response.setFactoryId(targetFactoryId);
-
-            factoryRepository.findById(targetFactoryId)
-                    .ifPresent(f -> response.setFactoryName(f.getName()));
-
-            return BaseResponseDTO.success("Employees fetched successfully", response);
-
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to fetch employees: " + e.getMessage());
+            targetFactoryId = factoryId;
         }
+
+        // Fetch user-factory mappings for the target factory
+        List<UserFactory> factoryEmployees = userFactoryRepository.findByFactoryId(targetFactoryId);
+
+        // Only include Workers + Chief Supervisors
+        List<EmployeeDetailDTO> employees = factoryEmployees.stream()
+                .map(uf -> uf.getUser())
+                .filter(u -> u.getRole() == Role.WORKER || u.getRole() == Role.CHIEF_SUPERVISOR)
+                .map(user -> convertToEmployeeDetailDTO(user, findUserFactory(factoryEmployees, user.getUserId())))
+                .collect(Collectors.toList());
+
+        // Prepare response
+        EmployeeResponseDTO response = new EmployeeResponseDTO();
+        response.setEmployees(employees);
+        response.setTotalCount(employees.size());
+        response.setFactoryId(targetFactoryId);
+
+        factoryRepository.findById(targetFactoryId)
+                .ifPresent(f -> response.setFactoryName(f.getName()));
+
+        return BaseResponseDTO.success("Employees fetched successfully", response);
+
+    } catch (Exception e) {
+        return BaseResponseDTO.error("Failed to fetch employees: " + e.getMessage());
     }
+}
+
+    // Helper to get UserFactory object by user ID
+    private UserFactory findUserFactory(List<UserFactory> list, Long userId) {
+        return list.stream()
+                .filter(uf -> uf.getUser().getUserId().equals(userId))
+                .findFirst()
+                .orElse(null);
+    }
+
 
     // Get employees by factory name
     public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(String factoryName) {
@@ -196,16 +267,16 @@ public class EmployeeService {
     }
 
     // Helper method
-    private Long getCurrentUserFactoryId() {
-        User currentUser = securityUtils.getCurrentUser();
-        if (currentUser.getRole() == Role.MANAGER) {
-            List<UserFactory> managerFactories = userFactoryRepository.findByUser(currentUser);
-            return managerFactories.isEmpty() ? null : managerFactories.get(0).getFactory().getFactoryId();
-        }
-        return null;
-    }
+//    private Long getCurrentUserFactoryId() {
+//        User currentUser = securityUtils.getCurrentUser();
+//        if (currentUser.getRole() == Role.MANAGER) {
+//            List<UserFactory> managerFactories = userFactoryRepository.findByUser(currentUser);
+//            return managerFactories.isEmpty() ? null : managerFactories.get(0).getFactory().getFactoryId();
+//        }
+//        return null;
+//    }
 
-    // ✅ FIXED: Manager creates employee
+
     @Transactional
     public BaseResponseDTO<UserDTO> createEmployee(CreateEmployeeDTO employeeDTO) {
         try {
@@ -290,7 +361,7 @@ public class EmployeeService {
         }
     }
 
-    // ✅ FIXED: Update employee - only name, email, phone, bay (NO factory transfer)
+    // Update employee - only name, email, phone, bay (NO factory transfer)
     @Transactional
     public BaseResponseDTO<UserDTO> updateEmployee(Long employeeId, CreateEmployeeDTO employeeDTO) {
         try {
@@ -315,7 +386,7 @@ public class EmployeeService {
             UserFactory employeeFactory = employeeFactories.get(0);
             Long currentFactoryId = employeeFactory.getFactory().getFactoryId();
 
-            // ✅ UPDATE BASIC INFO: name, email, phone
+            // UPDATE BASIC INFO: name, email, phone
             if (employeeDTO.getUsername() != null) {
                 employee.setUsername(employeeDTO.getUsername());
             }
@@ -332,7 +403,7 @@ public class EmployeeService {
             employee.setUpdatedAt(LocalDateTime.now());
             User updatedEmployee = userRepository.save(employee);
 
-            // ✅ UPDATE BAY (only for workers and if bayId is provided)
+            // UPDATE BAY (only for workers and if bayId is provided)
             if (employee.getRole() == Role.WORKER && employeeDTO.getBayId() != null) {
                 Bay newBay = bayRepository.findById(employeeDTO.getBayId())
                         .orElseThrow(() -> new RuntimeException("Bay not found"));
@@ -346,7 +417,7 @@ public class EmployeeService {
                 userFactoryRepository.save(employeeFactory);
             }
 
-            // ✅ NO FACTORY TRANSFER LOGIC - removed as requested
+            //  NO FACTORY TRANSFER LOGIC
 
             List<UserFactory> updatedFactories = userFactoryRepository.findByUser(updatedEmployee);
             UserFactory updatedUserFactory = updatedFactories.isEmpty() ? null : updatedFactories.get(0);
@@ -361,7 +432,7 @@ public class EmployeeService {
 
 
 
-    // Get all bays for a factory - FIXED: Use current user's factory
+    // Get all bays for a current manager's factory
     public BaseResponseDTO<List<BayDTO>> getBaysInFactory() {
         try {
             User currentUser = securityUtils.getCurrentUser();

@@ -1,7 +1,7 @@
 package com.example.inventory_factory_management.service;
 
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
 import com.example.inventory_factory_management.entity.UserCentralOffice;

@@ -58,7 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/product/categories/**").hasRole("OWNER")
                         .requestMatchers("/factories/**").hasRole("OWNER")
                         .requestMatchers("/tools/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR")
-                        .requestMatchers("/restock-requests").hasAnyRole("MANAGER", "CENTRAL_OFFICER")
+                        .requestMatchers("/inventory").hasAnyRole("MANAGER", "CENTRAL_OFFICER", "OWNER")
 
                         // Fallback - any other request needs authentication
                         .anyRequest().authenticated()

@@ -1,9 +1,9 @@
 package com.example.inventory_factory_management.controller;
 
 
-import com.example.inventory_factory_management.DTO.LoginDTO;
-import com.example.inventory_factory_management.DTO.LoginResponseDTO;
-import com.example.inventory_factory_management.DTO.SignupDTO;
+import com.example.inventory_factory_management.dto.LoginDTO;
+import com.example.inventory_factory_management.dto.LoginResponseDTO;
+import com.example.inventory_factory_management.dto.SignupDTO;
 import com.example.inventory_factory_management.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;

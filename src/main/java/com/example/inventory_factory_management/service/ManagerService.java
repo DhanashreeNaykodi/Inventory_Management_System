@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.Factory;
@@ -8,6 +8,7 @@ import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
+import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -105,8 +106,8 @@ public class ManagerService {
 //    // Get all managers with pagination and filtering
     public BaseResponseDTO<Page<UserDTO>> getAllManagers(String search, String status, BaseRequestDTO request) {
         try {
-            Pageable pageable = createPageable(request); // Use the helper method
-
+//            Pageable pageable = createPageable(request);
+            Pageable pageable = PaginationUtil.toPageable(request);
             // Build specification for filtering
             Specification<User> spec = createRoleSpecification();
 
@@ -169,7 +170,8 @@ public class ManagerService {
     // Search managers by name (partial match)
     public BaseResponseDTO<Page<UserDTO>> searchManagersByName(String managerName, BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
 
             // Search for managers with username containing the search term
             List<User> managers = userRepository.findByUsernameContainingIgnoreCaseAndRole(managerName, Role.MANAGER);
@@ -297,7 +299,8 @@ public class ManagerService {
     // Get available managers (without factory assignment or with inactive factories only)
     public BaseResponseDTO<Page<UserDTO>> getAvailableManagers(BaseRequestDTO request) {
         try {
-            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+            Pageable pageable = PaginationUtil.toPageable(request);
 
             // Get all active managers
             Specification<User> spec = createRoleSpecification().and(createStatusSpecification("ACTIVE"));
@@ -457,27 +460,6 @@ public class ManagerService {
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
         return dto;
-    }
-
-    // Add this helper method to ManagerService
-    private Pageable createPageable(BaseRequestDTO request) {
-        Sort sort = createSort(request.getSortBy(), request.getSortDirection());
-        return PageRequest.of(request.getPage(), request.getSize(), sort);
-    }
-
-    private Sort createSort(String sortBy, String sortDirection) {
-        if (sortBy == null || sortBy.trim().isEmpty()) {
-            sortBy = "createdAt";
-        }
-
-        if (sortDirection == null || sortDirection.trim().isEmpty()) {
-            sortDirection = "DESC";
-        }
-
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ?
-                Sort.Direction.ASC : Sort.Direction.DESC;
-
-        return Sort.by(direction, sortBy);
     }
 
 }

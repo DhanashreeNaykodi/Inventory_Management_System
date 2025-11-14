@@ -1,7 +1,7 @@
 package com.example.inventory_factory_management.controller;
 
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.FactoryService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +20,7 @@ public class FactoryController {
 
     @PreAuthorize("hasAnyRole('OWNER', 'CENTRAL_OFFICER')")
     @GetMapping("/factories")
-    public ResponseEntity<BaseResponseDTO<Page<FactoryDTO>>> getAllFactories(@Valid BaseRequestDTO request) {
+    public ResponseEntity<BaseResponseDTO<Page<FactoryDTO>>> getAllFactories(@Valid @ModelAttribute BaseRequestDTO request) {   //query parameters map to your BaseRequestDTO
         BaseResponseDTO<Page<FactoryDTO>> response = factoryService.getAllFactories(request);
         return ResponseEntity.ok(response);
     }
@@ -29,14 +29,14 @@ public class FactoryController {
     @GetMapping("/factories/search")
     public ResponseEntity<BaseResponseDTO<Page<FactoryDTO>>> searchFactories(
             @RequestParam String name,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<FactoryDTO>> response = factoryService.searchFactoriesByName(name, request);
         return ResponseEntity.ok(response);
     }
 
     @PreAuthorize("hasAnyRole('OWNER', 'CENTRAL_OFFICER')")
     @GetMapping("/factories/managers")
-    public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> getAllManagers(@Valid BaseRequestDTO request) {
+    public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> getAllManagers(@Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<UserDTO>> response = factoryService.getAllManagers(request);
         return ResponseEntity.ok(response);
     }
@@ -81,7 +81,7 @@ public class FactoryController {
     @GetMapping("/factories/filter")
     public ResponseEntity<BaseResponseDTO<Page<FactoryDTO>>> filterFactoriesByCity(
             @RequestParam String city,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<FactoryDTO>> response = factoryService.getFactoriesByCity(city, request);
         return ResponseEntity.ok(response);
     }

@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.CentralOfficeService;
 import com.example.inventory_factory_management.service.AuthService;
 import com.example.inventory_factory_management.service.UserService;

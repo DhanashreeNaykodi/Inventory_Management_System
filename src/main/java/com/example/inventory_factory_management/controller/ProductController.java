@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,7 +66,7 @@ public class ProductController {
     // UPDATED: Get all products with filtering
     @GetMapping("/products")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getAllProducts(
-            @Valid BaseRequestDTO request,
+            @Valid @ModelAttribute BaseRequestDTO request,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String status) {
@@ -79,7 +79,7 @@ public class ProductController {
     @GetMapping("/products/search")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> searchProducts(
             @RequestParam String search,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
 
         BaseResponseDTO<Page<ProductDTO>> response = productService.searchProductsByName(search, request);
         return ResponseEntity.ok(response);
@@ -89,7 +89,7 @@ public class ProductController {
     @GetMapping("/products/category/{categoryId}")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getProductsByCategory(
             @PathVariable Long categoryId,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
 
         BaseResponseDTO<Page<ProductDTO>> response = productService.getProductsByCategory(categoryId, request);
         return ResponseEntity.ok(response);

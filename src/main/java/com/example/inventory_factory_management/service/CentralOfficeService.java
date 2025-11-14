@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.CentralOffice;
@@ -128,7 +128,7 @@ public class CentralOfficeService {
 
                 }
             } else {
-                // Step 3: Create new user only if email doesn't exist
+                //Create new user only if email doesn't exist
                 // Validate email doesn't exist in any role
                 if (userRepository.existsByEmail(dto.getCentralOfficerEmail())) {
                     return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists");
@@ -157,16 +157,16 @@ public class CentralOfficeService {
                 sendCentralOfficerWelcomeEmail(newUser, "default123");
             }
 
-            // Step 4: Get the user (either existing or newly created)
+            // Get the user (either existing or newly created)
             User officer = userRepository.findByEmail(dto.getCentralOfficerEmail())
                     .orElseThrow(() -> new RuntimeException("Failed to retrieve user after creation"));
 
-            // Step 5: Check if mapping already exists for this office
+            // Check if mapping already exists for this office
             if (userCentralOfficeRepository.existsByUserAndOffice(officer, office)) {
                 return BaseResponseDTO.error("Chief Officer is already assigned to this office");
             }
 
-            // Step 6: Map the officer to the Central Office
+            // Map the officer to the Central Office
             UserCentralOffice mapping = new UserCentralOffice();
             mapping.setOffice(office);
             mapping.setUser(officer);
@@ -201,7 +201,7 @@ public class CentralOfficeService {
     }
 
 
-    public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOffices() {
+    public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOfficers() {
         try {
             List<CentralOffice> offices = centralOfficeRepository.findAll();
 

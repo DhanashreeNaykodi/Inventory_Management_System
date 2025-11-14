@@ -1,6 +1,6 @@
 package com.example.inventory_factory_management.controller;
 
-import com.example.inventory_factory_management.DTO.*;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.ManagerService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +30,7 @@ public class OwnerController {
     public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> getAllManagers(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<UserDTO>> response = managerService.getAllManagers(search, status, request);
         return ResponseEntity.ok(response);
     }
@@ -56,7 +56,7 @@ public class OwnerController {
     @GetMapping("/search/{managerName}")
     public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> searchManagersByName(
             @PathVariable String managerName,
-            @Valid BaseRequestDTO request) {
+            @Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<UserDTO>> response = managerService.searchManagersByName(managerName, request);
         return ResponseEntity.ok(response);
     }
@@ -90,7 +90,7 @@ public class OwnerController {
     // Get available managers (without factory assignment)
     @PreAuthorize("hasAnyRole('OWNER', 'CENTRAL_OFFICER')")
     @GetMapping("/available")
-    public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> getAvailableManagers(@Valid BaseRequestDTO request) {
+    public ResponseEntity<BaseResponseDTO<Page<UserDTO>>> getAvailableManagers(@Valid @ModelAttribute BaseRequestDTO request) {
         BaseResponseDTO<Page<UserDTO>> response = managerService.getAvailableManagers(request);
         return ResponseEntity.ok(response);
     }

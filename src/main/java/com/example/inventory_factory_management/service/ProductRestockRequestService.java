@@ -1,374 +1,348 @@
 package com.example.inventory_factory_management.service;
 
-import com.example.inventory_factory_management.DTO.*;
-import com.example.inventory_factory_management.constants.AccountStatus;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.RequestStatus;
 import com.example.inventory_factory_management.entity.*;
 import com.example.inventory_factory_management.repository.*;
+import com.example.inventory_factory_management.utils.PaginationUtil;
 import com.example.inventory_factory_management.utils.SecurityUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+//@Transactional
+@RequiredArgsConstructor
 public class ProductRestockRequestService {
 
-    private CentralOfficeProductRequestRepository centralOfficeProductRequestRepository;
-    private UserRepository userRepository;
-    private FactoryRepository factoryRepository;
-    private ProductRepository productRepository;
-    private CentralOfficeRepository centralOfficeRepository;
-    private FactoryProductProductionRepository factoryProductProductionRepository;
-    private FactoryProductInventoryRepository factoryProductInventoryRepository;
-    private EmailService emailService;
-    private SecurityUtil securityUtil;
-    private UserFactoryRepository userFactoryRepository;
-
-    @Autowired
-    public ProductRestockRequestService(CentralOfficeProductRequestRepository centralOfficeProductRequestRepository, UserRepository userRepository, FactoryRepository factoryRepository, ProductRepository productRepository, CentralOfficeRepository centralOfficeRepository, FactoryProductProductionRepository factoryProductProductionRepository, FactoryProductInventoryRepository factoryProductInventoryRepository, EmailService emailService, SecurityUtil securityUtil, UserFactoryRepository userFactoryRepository) {
-        this.centralOfficeProductRequestRepository = centralOfficeProductRequestRepository;
-        this.userRepository = userRepository;
-        this.factoryRepository = factoryRepository;
-        this.productRepository = productRepository;
-        this.centralOfficeRepository = centralOfficeRepository;
-        this.factoryProductProductionRepository = factoryProductProductionRepository;
-        this.factoryProductInventoryRepository = factoryProductInventoryRepository;
-        this.emailService = emailService;
-        this.securityUtil = securityUtil;
-        this.userFactoryRepository = userFactoryRepository;
-    }
-
-
-    // Helper method to create Pageable with sorting
-    private Pageable createPageable(BaseRequestDTO request) {
-        Sort sort = createSort(request.getSortBy(), request.getSortDirection());
-        return PageRequest.of(request.getPage(), request.getSize(), sort);
-    }
-
-    // Helper method to create Sort
-    private Sort createSort(String sortBy, String sortDirection) {
-        if (sortBy == null || sortBy.trim().isEmpty()) {
-            sortBy = "requestedAt"; // default sort field
-        }
-
-        if (sortDirection == null || sortDirection.trim().isEmpty()) {
-            sortDirection = "DESC"; // default sort direction
-        }
-
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC") ?
-                Sort.Direction.ASC : Sort.Direction.DESC;
-
-        return Sort.by(direction, sortBy);
-    }
-
-
+    private final CentralOfficeProductRequestRepository requestRepo;
+    private final UserRepository userRepo;
+    private final FactoryRepository factoryRepo;
+    private final ProductRepository productRepo;
+    private final FactoryProductProductionRepository productionRepo;
+    private final FactoryProductInventoryRepository inventoryRepo;
+    private final CentralOfficeInventoryRepository centralInventoryRepo;
+    private final SecurityUtil securityUtil;
 
     // Chief Officer creates restock request
-    public BaseResponseDTO<RestockRequestDTO> createRestockRequest(CreateRestockRequestDTO requestDTO) {
+    public BaseResponseDTO<CentralOfficeRestockResponseDTO> createRestockRequest(CreateRestockRequestDTO requestDTO) {
         try {
-            // Get current authenticated user using SecurityUtil
             User currentUser = securityUtil.getCurrentUser();
-
             if (currentUser.getRole() != Role.CENTRAL_OFFICER) {
                 return BaseResponseDTO.error("Only central officers can create restock requests");
             }
 
-            // Validate factory by name
-            Factory factory = factoryRepository.findByName(requestDTO.getFactoryName())
-                    .orElseThrow(() -> new RuntimeException("Factory not found with name: " + requestDTO.getFactoryName()));
+            Factory factory = factoryRepo.findById(requestDTO.getFactoryId())
+                    .orElseThrow(() -> new RuntimeException("Factory not found with ID: " + requestDTO.getFactoryId()));
 
-            // Validate product
-            Product product = productRepository.findById(requestDTO.getProductId())
+            Product product = productRepo.findById(requestDTO.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Validate quantity
             if (requestDTO.getQtyRequested() == null || requestDTO.getQtyRequested() <= 0) {
                 return BaseResponseDTO.error("Quantity must be greater than 0");
             }
 
-            // Create restock request
-            CentralOfficeProductRequest restockRequest = new CentralOfficeProductRequest();
-            restockRequest.setFactory(factory);
-            restockRequest.setProduct(product);
-            restockRequest.setQtyRequested(requestDTO.getQtyRequested());
-            restockRequest.setStatus(RequestStatus.PENDING);
-            restockRequest.setCreatedAt(LocalDateTime.now());
-            restockRequest.setRequestedBy(currentUser);
+            // Check if factory has sufficient stock
+            Long currentFactoryStock = getCurrentStock(factory, product);
+            if (currentFactoryStock < requestDTO.getQtyRequested()) {
+                return BaseResponseDTO.error("Factory has insufficient stock. Available: " + currentFactoryStock);
+            }
 
-            CentralOfficeProductRequest savedRequest = centralOfficeProductRequestRepository.save(restockRequest);
+            CentralOfficeProductRequest request = new CentralOfficeProductRequest();
+            request.setFactory(factory);
+            request.setProduct(product);
+            request.setQtyRequested(requestDTO.getQtyRequested());
+            request.setStatus(RequestStatus.PENDING);
+            request.setCreatedAt(LocalDateTime.now());
+            request.setRequestedBy(currentUser);
 
-            return BaseResponseDTO.success("Restock request created successfully", convertToDTO(savedRequest));
+            CentralOfficeProductRequest savedRequest = requestRepo.save(request);
+
+            // Return central office view (includes central office stock)
+            CentralOfficeRestockResponseDTO responseDTO = convertToCentralOfficeDTO(savedRequest);
+            responseDTO.setCurrentFactoryStock(currentFactoryStock);
+
+            return BaseResponseDTO.success("Restock request created successfully", responseDTO);
 
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to create restock request: " + e.getMessage());
         }
     }
 
-
-
-    // Factory manager can update stock without request
+    // Factory manager can update stock when they produce more
     public BaseResponseDTO<String> updateStockDirectly(UpdateStockDTO stockDTO) {
         try {
-            // Get current authenticated user using SecurityUtil
             User currentUser = securityUtil.getCurrentUser();
-
             if (currentUser.getRole() != Role.MANAGER) {
                 return BaseResponseDTO.error("Only factory managers can update stock");
             }
 
-            // Get manager's assigned factory automatically
-            Long userFactoryId = securityUtil.getCurrentUserFactoryId();
-            if (userFactoryId == null) {
+            Long factoryId = securityUtil.getCurrentUserFactoryId();
+            if (factoryId == null) {
                 return BaseResponseDTO.error("Manager is not assigned to any factory");
             }
 
-            Factory factory = factoryRepository.findById(userFactoryId)
+            Factory factory = factoryRepo.findById(factoryId)
                     .orElseThrow(() -> new RuntimeException("Factory not found"));
 
-            // Validate product
-            Product product = productRepository.findById(stockDTO.getProductId())
+            Product product = productRepo.findById(stockDTO.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Validate quantity
             if (stockDTO.getQuantity() == null || stockDTO.getQuantity() <= 0) {
                 return BaseResponseDTO.error("Quantity must be greater than 0");
             }
 
-            // Update production and inventory
-            updateProductionAndInventory(factory, product, stockDTO.getQuantity(), currentUser);
-            return BaseResponseDTO.success("Stock updated successfully for your " + factory.getName());
-
+            // Add to factory inventory and track production
+            addToFactoryInventory(factory, product, stockDTO.getQuantity(), currentUser);
+            trackFactoryProduction(factory, product, stockDTO.getQuantity());
+            return BaseResponseDTO.success(stockDTO.getQuantity() + " units added to " + factory.getName() + " inventory");
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to update stock: " + e.getMessage());
         }
     }
 
-    // Get all restock requests with pagination - all chief officers
-    public BaseResponseDTO<List<RestockRequestDTO>> getAllRestockRequests(RequestStatus status, BaseRequestDTO request) {
+    // Factory manager completes restock request - Returns factory view only
+    public BaseResponseDTO<FactoryRestockResponseDTO> completeRestockRequest(Long requestId) {
         try {
-            Pageable pageable = createPageable(request);
-            Page<CentralOfficeProductRequest> restockPage;
-
-            if (status != null) {
-                // Filter by specific status
-                restockPage = centralOfficeProductRequestRepository.findByStatus(status, pageable);
-            } else {
-                // Get all requests if no status specified
-                restockPage = centralOfficeProductRequestRepository.findAll(pageable);
+            if (!securityUtil.isManagerOrOwner()) {
+                return BaseResponseDTO.error("Only managers or owners can complete restock requests");
             }
 
-            List<RestockRequestDTO> content = restockPage.getContent().stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
+            CentralOfficeProductRequest request = requestRepo.findById(requestId)
+                    .orElseThrow(() -> new RuntimeException("Restock request not found"));
 
-            BaseResponseDTO<List<RestockRequestDTO>> response = BaseResponseDTO.success(
-                    status != null ?
-                            status + " restock requests retrieved successfully" :
-                            "All restock requests retrieved successfully",
-                    content
-            );
+            if (!securityUtil.hasAccessToFactory(request.getFactory().getFactoryId())) {
+                return BaseResponseDTO.error("You don't have access to complete requests for this factory");
+            }
 
-            // Add pagination info
-            response.setPagination(new BaseResponseDTO.PaginationInfo(
-                    restockPage.getNumber(),
-                    restockPage.getSize(),
-                    restockPage.getTotalElements(),
-                    restockPage.getTotalPages(),
-                    restockPage.isFirst(),
-                    restockPage.isLast()
-            ));
+            if (request.getStatus() != RequestStatus.PENDING) {
+                return BaseResponseDTO.error("Only pending requests can be completed");
+            }
 
-            return response;
+            // Check if factory has enough stock to fulfill the request
+            if (!hasSufficientStock(request.getFactory(), request.getProduct(), request.getQtyRequested())) {
+                return BaseResponseDTO.error("Insufficient stock. Factory only has " +
+                        getCurrentStock(request.getFactory(), request.getProduct()) +
+                        " units of " + request.getProduct().getName());
+            }
+
+            // Get current factory stock before deduction
+            Long currentFactoryStock = getCurrentStock(request.getFactory(), request.getProduct());
+
+            // DEDUCT from factory inventory (transfer stock out to central office)
+            deductFromFactoryInventory(request.getFactory(), request.getProduct(), request.getQtyRequested());
+
+            // ADD to central office inventory (accumulate total production)
+            addToCentralOfficeInventory(request.getProduct(), request.getQtyRequested());
+
+            // Update request status to COMPLETED
+            request.setStatus(RequestStatus.COMPLETED);
+            CentralOfficeProductRequest updatedRequest = requestRepo.save(request);
+
+            // Return factory view (NO central office stock information)
+            FactoryRestockResponseDTO responseDTO = convertToFactoryDTO(updatedRequest);
+            responseDTO.setCurrentFactoryStock(currentFactoryStock);
+            responseDTO.setCompletedAt(LocalDateTime.now());
+
+            return BaseResponseDTO.success("Restock request completed successfully. " +
+                            request.getQtyRequested() + " units transferred from " + request.getFactory().getName() + " to central office",
+                    responseDTO);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to complete restock request: " + e.getMessage());
+        }
+    }
+
+    // Get all restock requests with pagination (Central Officers see central office view)
+    public BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> getAllRestockRequests(RequestStatus status, BaseRequestDTO requestDTO) {
+        try {
+            User currentUser = securityUtil.getCurrentUser();
+            if (currentUser.getRole() != Role.CENTRAL_OFFICER) {
+                return BaseResponseDTO.error("Only central officers can view all requests");
+            }
+
+            Pageable pageable = PaginationUtil.toPageable(requestDTO);
+            Page<CentralOfficeProductRequest> restockPage = (status != null)
+                    ? requestRepo.findByStatus(status, pageable)
+                    : requestRepo.findAll(pageable);
+
+            return createCentralOfficePagedResponse(restockPage,
+                    status != null ? status + " restock requests retrieved successfully"
+                            : "All restock requests retrieved successfully");
+
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to retrieve restock requests: " + e.getMessage());
         }
     }
 
-    // Get my restock requests with pagination (for current chief officer)
-    public BaseResponseDTO<List<RestockRequestDTO>> getMyRestockRequests(RequestStatus status, BaseRequestDTO request) {
+    // Get my restock requests with pagination (Chief Officers see central office view)
+    public BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> getMyRestockRequests(RequestStatus status, BaseRequestDTO requestDTO) {
         try {
             User currentUser = securityUtil.getCurrentUser();
-
             if (currentUser.getRole() != Role.CENTRAL_OFFICER) {
                 return BaseResponseDTO.error("Only chief officers can view their requests");
             }
 
-            Pageable pageable = createPageable(request);
-            Page<CentralOfficeProductRequest> restockPage;
+            Pageable pageable = PaginationUtil.toPageable(requestDTO);
 
-            if (status != null) {
-                // Filter by specific status for current user
-                restockPage = centralOfficeProductRequestRepository.findByRequestedByUserIdAndStatus(currentUser.getUserId(), status, pageable);
-            } else {
-                // Get all requests for current user if no status specified
-                restockPage = centralOfficeProductRequestRepository.findByRequestedByUserId(currentUser.getUserId(), pageable);
-            }
+            Page<CentralOfficeProductRequest> restockPage = (status != null)
+                    ? requestRepo.findByRequestedByUserIdAndStatus(currentUser.getUserId(), status, pageable)
+                    : requestRepo.findByRequestedByUserId(currentUser.getUserId(), pageable);
 
-            List<RestockRequestDTO> content = restockPage.getContent().stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
+            return createCentralOfficePagedResponse(restockPage,
+                    status != null ? "Your " + status + " restock requests retrieved successfully"
+                            : "Your restock requests retrieved successfully");
 
-            BaseResponseDTO<List<RestockRequestDTO>> response = BaseResponseDTO.success(
-                    status != null ?
-                            "Your " + status + " restock requests retrieved successfully" :
-                            "Your restock requests retrieved successfully",
-                    content
-            );
-
-            // Add pagination info
-            response.setPagination(new BaseResponseDTO.PaginationInfo(
-                    restockPage.getNumber(),
-                    restockPage.getSize(),
-                    restockPage.getTotalElements(),
-                    restockPage.getTotalPages(),
-                    restockPage.isFirst(),
-                    restockPage.isLast()
-            ));
-
-            return response;
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to retrieve your restock requests: " + e.getMessage());
         }
     }
 
-    // Get restock requests by factory name with pagination - not needed i think
-//    public BaseResponseDTO<List<RestockRequestDTO>> getRestockRequestsByFactory(String factoryName, RequestStatus status, BaseRequestDTO request) {
-//        try {
-//            Pageable pageable = createPageable(request);
-//            Page<CentralOfficeProductRequest> restockPage;
-//
-//            if (status != null) {
-//                // Filter by factory name and specific status
-//                restockPage = centralOfficeProductRequestRepository.findByFactoryNameAndStatus(factoryName, status, pageable);
-//            } else {
-//                // Get all requests for factory if no status specified
-//                restockPage = centralOfficeProductRequestRepository.findByFactoryName(factoryName, pageable);
-//            }
-//
-//            List<RestockRequestDTO> content = restockPage.getContent().stream()
-//                    .map(this::convertToDTO)
-//                    .collect(Collectors.toList());
-//
-//            BaseResponseDTO<List<RestockRequestDTO>> response = BaseResponseDTO.success(
-//                    status != null ?
-//                            status + " restock requests for factory " + factoryName + " retrieved successfully" :
-//                            "All restock requests for factory " + factoryName + " retrieved successfully",
-//                    content
-//            );
-//
-//            // Add pagination info
-//            response.setPagination(new BaseResponseDTO.PaginationInfo(
-//                    restockPage.getNumber(),
-//                    restockPage.getSize(),
-//                    restockPage.getTotalElements(),
-//                    restockPage.getTotalPages(),
-//                    restockPage.isFirst(),
-//                    restockPage.isLast()
-//            ));
-//
-//            return response;
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to retrieve restock requests: " + e.getMessage());
-//        }
-//    }
-
-    // Get restock requests for manager's assigned factory with pagination
-    public BaseResponseDTO<List<RestockRequestDTO>> getMyFactoryRestockRequests(RequestStatus status, BaseRequestDTO request) {
+    // Get factory restock requests with pagination (Managers see factory view only)
+    public BaseResponseDTO<Page<FactoryRestockResponseDTO>> getMyFactoryRestockRequests(RequestStatus status, BaseRequestDTO requestDTO) {
         try {
             if (!securityUtil.isManagerOrOwner()) {
                 return BaseResponseDTO.error("Only managers or owners can view factory requests");
             }
 
-            // For managers, automatically filter by their assigned factory
-            Long userFactoryId = securityUtil.getCurrentUserFactoryId();
-            if (userFactoryId != null) {
-                Pageable pageable = createPageable(request);
-                Page<CentralOfficeProductRequest> restockPage;
-
-                if (status != null) {
-                    // Filter by manager's factory and specific status
-                    restockPage = centralOfficeProductRequestRepository.findByFactoryIdAndStatus(userFactoryId, status, pageable);
-                } else {
-                    // Get all requests for manager's factory if no status specified
-                    restockPage = centralOfficeProductRequestRepository.findByFactoryId(userFactoryId, pageable);
-                }
-
-                List<RestockRequestDTO> content = restockPage.getContent().stream()
-                        .map(this::convertToDTO)
-                        .collect(Collectors.toList());
-
-                BaseResponseDTO<List<RestockRequestDTO>> response = BaseResponseDTO.success(
-                        status != null ?
-                                status + " restock requests for your factory retrieved successfully" :
-                                "All restock requests for your factory retrieved successfully",
-                        content
-                );
-
-                // Add pagination info
-                response.setPagination(new BaseResponseDTO.PaginationInfo(
-                        restockPage.getNumber(),
-                        restockPage.getSize(),
-                        restockPage.getTotalElements(),
-                        restockPage.getTotalPages(),
-                        restockPage.isFirst(),
-                        restockPage.isLast()
-                ));
-
-                return response;
+            Long factoryId = securityUtil.getCurrentUserFactoryId();
+            if (factoryId == null) {
+                return BaseResponseDTO.error("No factory assigned to your account");
             }
 
-            return BaseResponseDTO.error("No factory assigned to your account");
+            Pageable pageable = PaginationUtil.toPageable(requestDTO);
+
+            Page<CentralOfficeProductRequest> restockPage = (status != null)
+                    ? requestRepo.findByFactoryIdAndStatus(factoryId, status, pageable)
+                    : requestRepo.findByFactoryId(factoryId, pageable);
+
+            return createFactoryPagedResponse(restockPage,
+                    status != null ? status + " restock requests for your factory retrieved successfully"
+                            : "All restock requests for your factory retrieved successfully");
+
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to retrieve factory restock requests: " + e.getMessage());
         }
     }
 
-    // Get pending requests for a factory (no pagination - for dropdowns)
-//    public BaseResponseDTO<List<RestockRequestDTO>> getPendingRequestsForFactory(String factoryName) {
-//        try {
-//            // Find factory by name first
-//            Factory factory = factoryRepository.findByName(factoryName)
-//                    .orElseThrow(() -> new RuntimeException("Factory not found with name: " + factoryName));
-//
-//            // Check if user has access to this factory
-//            if (!securityUtil.hasAccessToFactory(factory.getFactoryId())) {
-//                return BaseResponseDTO.error("You don't have access to view requests for this factory");
-//            }
-//
-//            List<CentralOfficeProductRequest> pendingRequests = centralOfficeProductRequestRepository.findPendingRequestsForFactory(factory.getFactoryId());
-//            List<RestockRequestDTO> dtoList = pendingRequests.stream()
-//                    .map(this::convertToDTO)
-//                    .collect(Collectors.toList());
-//
-//            return BaseResponseDTO.success("Pending restock requests retrieved successfully", dtoList);
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to retrieve pending restock requests: " + e.getMessage());
-//        }
-//    }
+    // COMPLETE: Add to central office inventory (accumulate total production from all factories)
+    private Long addToCentralOfficeInventory(Product product, Integer quantity) {
+        CentralOfficeInventory centralInventory = centralInventoryRepo.findByProduct(product)
+                .orElse(new CentralOfficeInventory(product, 0L));
 
-    // Helper methods for production and inventory updates
-    private void updateProductionAndInventory(CentralOfficeProductRequest request) {
-        updateProductionAndInventory(request.getFactory(), request.getProduct(),
-                request.getQtyRequested(), request.getRequestedBy());
+        centralInventory.addQuantity(quantity.longValue());
+        CentralOfficeInventory savedInventory = centralInventoryRepo.save(centralInventory);
+
+        return savedInventory.getQuantity();
     }
 
-    private void updateProductionAndInventory(Factory factory, Product product, Integer quantity, User addedBy) {
-        updateFactoryProduction(factory, product, quantity);
-        updateFactoryInventory(factory, product, quantity, addedBy);
+    // Get central office inventory for a product
+    public BaseResponseDTO<CentralOfficeInventoryDTO> getCentralOfficeInventory(Long productId) {
+        try {
+            Product product = productRepo.findById(productId)
+                    .orElseThrow(() -> new RuntimeException("Product not found"));
+
+            CentralOfficeInventory inventory = centralInventoryRepo.findByProduct(product)
+                    .orElse(new CentralOfficeInventory(product, 0L));
+
+            CentralOfficeInventoryDTO dto = new CentralOfficeInventoryDTO();
+            dto.setProductId(product.getId());
+            dto.setProductName(product.getName());
+            dto.setQuantity(inventory.getQuantity());
+            dto.setTotalReceived(inventory.getTotalReceived());
+
+            return BaseResponseDTO.success("Central office inventory retrieved successfully", dto);
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to get central office inventory: " + e.getMessage());
+        }
     }
 
-    private void updateFactoryProduction(Factory factory, Product product, Integer quantity) {
-        FactoryProductProduction production = factoryProductProductionRepository
-                .findByFactoryAndProduct(factory, product)
+    // Get all central office inventory with pagination
+    public BaseResponseDTO<Page<CentralOfficeInventoryDTO>> getAllCentralOfficeInventory(BaseRequestDTO requestDTO) {
+        try {
+
+//            because central office inventory does not have createdAt field
+//            Pageable pageable = PaginationUtil.toPageable(requestDTO);
+
+            int page = requestDTO.getPage() == null ? 0 : requestDTO.getPage();
+            int size = requestDTO.getSize() == null ? 20 : requestDTO.getSize();
+            Pageable pageable = PageRequest.of(page, size);
+            Page<CentralOfficeInventory> inventoryPage = centralInventoryRepo.findAll(pageable);
+
+            Page<CentralOfficeInventoryDTO> dtoPage = inventoryPage.map(inventory -> {
+                CentralOfficeInventoryDTO dto = new CentralOfficeInventoryDTO();
+
+                if (inventory.getProduct() != null) {
+                    dto.setProductId(inventory.getProduct().getId());
+                    dto.setProductName(inventory.getProduct().getName());
+                } else {
+                    dto.setProductId(null);
+                    dto.setProductName("Unknown Product");
+                }
+
+                dto.setQuantity(inventory.getQuantity());
+                dto.setTotalReceived(inventory.getTotalReceived());
+                return dto;
+            });
+
+            return BaseResponseDTO.success("Central office inventory retrieved successfully", dtoPage);
+
+        } catch (Exception e) {
+            System.err.println("Error in getAllCentralOfficeInventory: " + e.getMessage());
+            e.printStackTrace();
+            return BaseResponseDTO.error("Failed to get central office inventory: " + e.getMessage());
+        }
+    }
+
+    // Check if factory has enough stock
+    private boolean hasSufficientStock(Factory factory, Product product, Integer requestedQty) {
+        Long currentStock = getCurrentStock(factory, product);
+        return currentStock >= requestedQty;
+    }
+
+    // Get current stock for a product in factory
+    private Long getCurrentStock(Factory factory, Product product) {
+        return inventoryRepo.findByFactoryAndProduct(factory, product)
+                .map(FactoryProductInventory::getQty)
+                .orElse(0L);
+    }
+
+    // Add to factory inventory (when factory produces more)
+    private void addToFactoryInventory(Factory factory, Product product, Integer quantity, User addedBy) {
+        FactoryProductInventory inventory = inventoryRepo.findByFactoryAndProduct(factory, product)
+                .orElse(new FactoryProductInventory());
+
+        if (inventory.getStockEntryId() == null) {
+            inventory.setFactory(factory);
+            inventory.setProduct(product);
+            inventory.setQty(quantity.longValue());
+            inventory.setAddedBy(addedBy);
+        } else {
+            inventory.setQty(inventory.getQty() + quantity);
+        }
+        inventoryRepo.save(inventory);
+    }
+
+    // Deduct from factory inventory (when fulfilling restock request)
+    private void deductFromFactoryInventory(Factory factory, Product product, Integer quantity) {
+        FactoryProductInventory inventory = inventoryRepo.findByFactoryAndProduct(factory, product)
+                .orElseThrow(() -> new RuntimeException("Factory inventory not found for " + product.getName()));
+
+        if (inventory.getQty() < quantity) {
+            throw new RuntimeException("Insufficient stock in factory inventory");
+        }
+
+        inventory.setQty(inventory.getQty() - quantity);
+        inventoryRepo.save(inventory);
+    }
+
+    // Track factory production
+    private void trackFactoryProduction(Factory factory, Product product, Integer quantity) {
+        FactoryProductProduction production = productionRepo.findByFactoryAndProduct(factory, product)
                 .orElse(new FactoryProductProduction());
 
         if (production.getId() == null) {
@@ -378,101 +352,40 @@ public class ProductRestockRequestService {
         } else {
             production.setProducedQty(production.getProducedQty() + quantity);
         }
-
-        factoryProductProductionRepository.save(production);
+        productionRepo.save(production);
     }
 
-    private void updateFactoryInventory(Factory factory, Product product, Integer quantity, User addedBy) {
-        FactoryProductInventory inventory = factoryProductInventoryRepository
-                .findByFactoryAndProduct(factory, product)
-                .orElse(new FactoryProductInventory());
+    // Helper methods for different DTO conversions
+    private BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> createCentralOfficePagedResponse(
+            Page<CentralOfficeProductRequest> page, String message) {
 
-        if (inventory.getStockEntryId() == null) {
-            inventory.setFactory(factory);
-            inventory.setProduct(product);
-            inventory.setQty(quantity.longValue());
-            inventory.setAddedBy(addedBy);
-            // No lastUpdated field in FactoryProductInventory - removed
-        } else {
-            inventory.setQty(inventory.getQty() + quantity);
-            // No lastUpdated field in FactoryProductInventory - removed
-        }
+        List<CentralOfficeRestockResponseDTO> content = page.getContent().stream()
+                .map(this::convertToCentralOfficeDTO)
+                .collect(Collectors.toList());
 
-        factoryProductInventoryRepository.save(inventory);
+        Page<CentralOfficeRestockResponseDTO> pagedResult = new PageImpl<>(
+                content, page.getPageable(), page.getTotalElements()
+        );
+
+        return BaseResponseDTO.success(message, pagedResult);
     }
 
-    private User getFactoryManager(Factory factory) {
-        try {
-            System.out.println("=== DEBUG: Getting manager for factory ===");
-            System.out.println("Factory ID: " + factory.getFactoryId());
-            System.out.println("Factory Name: " + factory.getName());
+    private BaseResponseDTO<Page<FactoryRestockResponseDTO>> createFactoryPagedResponse(
+            Page<CentralOfficeProductRequest> page, String message) {
 
-            // Check if factory has plantHead
-            if (factory.getPlantHead() != null) {
-                System.out.println("Factory has plantHead: " + factory.getPlantHead().getUsername());
-                return factory.getPlantHead();
-            } else {
-                System.out.println("Factory has NO plantHead");
-            }
+        List<FactoryRestockResponseDTO> content = page.getContent().stream()
+                .map(this::convertToFactoryDTO)
+                .collect(Collectors.toList());
 
-            // Try different repository methods
-            System.out.println("--- Trying findByFactoryId ---");
-            List<UserFactory> factoryUsersById = userFactoryRepository.findByFactoryId(factory.getFactoryId());
-            System.out.println("Found " + factoryUsersById.size() + " users by factory ID");
+        Page<FactoryRestockResponseDTO> pagedResult = new PageImpl<>(
+                content, page.getPageable(), page.getTotalElements()
+        );
 
-            // Also try findByFactory if it exists
-            try {
-                System.out.println("--- Trying findByFactory ---");
-                List<UserFactory> factoryUsersByEntity = userFactoryRepository.findByFactory(factory);
-                System.out.println("Found " + factoryUsersByEntity.size() + " users by factory entity");
-                factoryUsersById.addAll(factoryUsersByEntity);
-            } catch (Exception e) {
-                System.out.println("findByFactory method not available: " + e.getMessage());
-            }
-
-            // Log ALL users in this factory regardless of role
-            for (UserFactory uf : factoryUsersById) {
-                User user = uf.getUser();
-                System.out.println("User in factory: " + user.getUsername() +
-                        " (ID: " + user.getUserId() +
-                        "), Role: " + user.getRole() +
-                        ", UserRole in mapping: " + uf.getUserRole() +
-                        ", Status: " + uf.getStatus());
-            }
-
-            // Check for managers
-            List<UserFactory> managers = factoryUsersById.stream()
-                    .filter(uf -> {
-                        boolean isManager = uf.getUserRole() == Role.MANAGER;
-                        boolean isActive = uf.getStatus() == AccountStatus.ACTIVE;
-                        System.out.println("Checking user: " + uf.getUser().getUsername() +
-                                ", isManager: " + isManager +
-                                ", isActive: " + isActive);
-                        return isManager && isActive;
-                    })
-                    .collect(Collectors.toList());
-
-            System.out.println("Found " + managers.size() + " active managers");
-
-            if (!managers.isEmpty()) {
-                User manager = managers.get(0).getUser();
-                System.out.println("✅ Using manager: " + manager.getUsername());
-                return manager;
-            }
-
-            System.out.println("❌ No active manager found");
-            return null;
-
-        } catch (Exception e) {
-            System.err.println("❌ Error getting factory manager: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
+        return BaseResponseDTO.success(message, pagedResult);
     }
 
-    // Update the convertToDTO method to include factory manager info
-    private RestockRequestDTO convertToDTO(CentralOfficeProductRequest request) {
-        RestockRequestDTO dto = new RestockRequestDTO();
+    private CentralOfficeRestockResponseDTO convertToCentralOfficeDTO(CentralOfficeProductRequest request) {
+        CentralOfficeRestockResponseDTO dto = new CentralOfficeRestockResponseDTO();
         dto.setId(request.getId());
         dto.setFactoryId(request.getFactory().getFactoryId());
         dto.setFactoryName(request.getFactory().getName());
@@ -480,57 +393,36 @@ public class ProductRestockRequestService {
         dto.setProductName(request.getProduct().getName());
         dto.setQtyRequested(request.getQtyRequested());
         dto.setStatus(request.getStatus());
-        dto.setRequestedAt(request.getCreatedAt());
-        dto.setRequestedByUserId(request.getRequestedBy().getUserId());
-        dto.setRequestedByUserName(request.getRequestedBy().getUsername());
+        dto.setCreatedAt(request.getCreatedAt());
 
-        // NEW: Get factory manager information
-        User factoryManager = getFactoryManager(request.getFactory());
-        if (factoryManager != null) {
-            dto.setManagerUserId(factoryManager.getUserId());
-            dto.setManagerUserName(factoryManager.getUsername());
-        }
+        // Add current factory stock information
+        Long currentStock = getCurrentStock(request.getFactory(), request.getProduct());
+        dto.setCurrentFactoryStock(currentStock);
 
-        // Set completedAt if the request is completed
-        if (request.getStatus() == RequestStatus.COMPLETED) {
-            dto.setCompletedAt(LocalDateTime.now());
-        }
+        // Add central office stock information (only for central officers)
+        Long centralOfficeStock = centralInventoryRepo.findByProduct(request.getProduct())
+                .map(CentralOfficeInventory::getQuantity)
+                .orElse(0L);
+        dto.setCentralOfficeStock(centralOfficeStock);
 
         return dto;
     }
 
+    private FactoryRestockResponseDTO convertToFactoryDTO(CentralOfficeProductRequest request) {
+        FactoryRestockResponseDTO dto = new FactoryRestockResponseDTO();
+        dto.setId(request.getId());
+        dto.setFactoryId(request.getFactory().getFactoryId());
+        dto.setFactoryName(request.getFactory().getName());
+        dto.setProductId(request.getProduct().getId());
+        dto.setProductName(request.getProduct().getName());
+        dto.setQtyRequested(request.getQtyRequested());
+        dto.setStatus(request.getStatus());
+        dto.setCreatedAt(request.getCreatedAt());
 
-    // Factory manager completes restock request (updated to set completedAt)
-    public BaseResponseDTO<RestockRequestDTO> completeRestockRequest(Long requestId) {
-        try {
-            // Check if user is manager or owner
-            if (!securityUtil.isManagerOrOwner()) {
-                return BaseResponseDTO.error("Only managers or owners can complete restock requests");
-            }
+        // Add current factory stock information only
+        Long currentStock = getCurrentStock(request.getFactory(), request.getProduct());
+        dto.setCurrentFactoryStock(currentStock);
 
-            CentralOfficeProductRequest restockRequest = centralOfficeProductRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new RuntimeException("Restock request not found"));
-
-            // Check if user has access to this factory
-            if (!securityUtil.hasAccessToFactory(restockRequest.getFactory().getFactoryId())) {
-                return BaseResponseDTO.error("You don't have access to complete requests for this factory");
-            }
-
-            if (restockRequest.getStatus() != RequestStatus.PENDING) {
-                return BaseResponseDTO.error("Only pending requests can be completed");
-            }
-
-            // Update request status
-            restockRequest.setStatus(RequestStatus.COMPLETED);
-            CentralOfficeProductRequest updatedRequest = centralOfficeProductRequestRepository.save(restockRequest);
-
-            // Update production and inventory records with the requested quantity
-            updateProductionAndInventory(restockRequest);
-
-            return BaseResponseDTO.success("Restock request completed successfully", convertToDTO(updatedRequest));
-
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to complete restock request: " + e.getMessage());
-        }
+        return dto;
     }
 }

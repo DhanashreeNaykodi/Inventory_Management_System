@@ -74,7 +74,7 @@ public class Factory {
 
     @OneToMany(mappedBy = "factory")
     private List<Bay> bays;
-//
+
     @OneToMany(mappedBy = "factory")
     private List<StorageArea> storageAreas;
 }

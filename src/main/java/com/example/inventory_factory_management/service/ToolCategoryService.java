@@ -1,9 +1,9 @@
 package com.example.inventory_factory_management.service;
 
 
-import com.example.inventory_factory_management.DTO.AddToolCategoryDTO;
-import com.example.inventory_factory_management.DTO.BaseResponseDTO;
-import com.example.inventory_factory_management.DTO.ToolCategoryDTO;
+import com.example.inventory_factory_management.dto.AddToolCategoryDTO;
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import com.example.inventory_factory_management.dto.ToolCategoryDTO;
 import com.example.inventory_factory_management.entity.ToolCategory;
 import com.example.inventory_factory_management.repository.ToolCategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +27,12 @@ public class ToolCategoryService {
     private final ToolCategoryRepository toolCategoryRepository;
 
 
+    // no write/update/delete operation in this method
     @Transactional(readOnly = true)
     public BaseResponseDTO<Page<ToolCategoryDTO>> getAllToolCategories(Pageable pageable) {
         try {
-            log.info("Fetching tool categories with pagination - page: {}, size: {}",
-                    pageable.getPageNumber(), pageable.getPageSize());
+//            log.info("Fetching tool categories with pagination - page: {}, size: {}",
+//                    pageable.getPageNumber(), pageable.getPageSize());
 
             Page<ToolCategory> categoriesPage = toolCategoryRepository.findAll(pageable);
 
