@@ -1,304 +1,360 @@
-//package com.example.inventory_factory_management.service;
-//
-//
-//import com.example.inventory_factory_management.DTO.*;
-//import com.example.inventory_factory_management.entity.*;
-//import com.example.inventory_factory_management.repository.*;
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.stereotype.Service;
-//import org.springframework.web.multipart.MultipartFile;
-//
-//import java.io.IOException;
-//import java.time.LocalDateTime;
-//import java.util.List;
-//import java.util.Optional;
-//import java.util.stream.Collectors;
-//
-//@Service
-//@RequiredArgsConstructor
-//public class toolService {
-//
-//    private ToolRepository toolRepository;
-//    private toolCategoryRepository toolCategoryRepository;
-//    private StorageAreaRepository storageAreaRepository;
-//    private ToolStorageMappingRepository toolStorageMappingRepository;
-//    private FactoryRepository factoryRepository;
-//
-//    @Autowired
-//    public toolService(ToolRepository toolRepository, toolCategoryRepository toolCategoryRepository, StorageAreaRepository storageAreaRepository, ToolStorageMappingRepository toolStorageMappingRepository, FactoryRepository factoryRepository) {
-//        this.toolRepository = toolRepository;
-//        this.toolCategoryRepository = toolCategoryRepository;
-//        this.storageAreaRepository = storageAreaRepository;
-//        this.toolStorageMappingRepository = toolStorageMappingRepository;
-//        this.factoryRepository = factoryRepository;
-//    }
-//
-//    public BaseResponseDTO<ToolResponseDTO> addTool(AddNewToolDTO addNewToolDTO, MultipartFile image) throws IOException {
+package com.example.inventory_factory_management.service;
+
+
+import com.example.inventory_factory_management.constants.AccountStatus;
+import com.example.inventory_factory_management.constants.Expensive;
+import com.example.inventory_factory_management.constants.ToolType;
+import com.example.inventory_factory_management.dto.*;
+import com.example.inventory_factory_management.entity.*;
+import com.example.inventory_factory_management.repository.*;
+import com.example.inventory_factory_management.specifications.ToolSpecifications;
+import com.example.inventory_factory_management.utils.PaginationUtil;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class ToolService {
+
+    @Autowired
+    private final ToolRepository toolRepository;
+    @Autowired
+    private final ToolCategoryRepository toolCategoryRepository;
+    @Autowired
+    private CloudinaryService cloudinaryService;
+
+
+
+    public BaseResponseDTO<ToolResponseDTO> createTool(CreateToolDTO createToolDTO) {
+        try {
+            // Check if tool name already exists
+            if (toolRepository.existsByNameIgnoreCase(createToolDTO.getName())) {
+                return BaseResponseDTO.error("Tool with this name already exists");
+            }
+
+            // Validate category
+            ToolCategory category = toolCategoryRepository.findById(createToolDTO.getCategoryId())
+                    .orElseThrow(() -> new RuntimeException("Category not found"));
+
+
+            // Create tool entity
+            Tool tool = new Tool();
+            tool.setName(createToolDTO.getName());
+            tool.setCategory(category);
+            tool.setType(createToolDTO.getType());
+            tool.setIsExpensive(createToolDTO.getIsExpensive());
+            tool.setThreshold(createToolDTO.getThreshold());
+
+            // Handle image upload
+            String imageUrl = cloudinaryService.uploadFile(createToolDTO.getImage());
+            tool.setImageUrl(imageUrl);
+            tool.setUpdatedAt(LocalDateTime.now());
+            tool.setStatus(AccountStatus.ACTIVE);
+
+            Tool savedTool = toolRepository.save(tool);
+
+            return BaseResponseDTO.success("Tool created successfully", convertToDTO(savedTool));
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error creating tool: " + e.getMessage());
+        }
+    }
+
+    public BaseResponseDTO<Page<ToolResponseDTO>> getAllTools(
+            BaseRequestDTO request,
+            Long categoryId,
+            AccountStatus status,
+            ToolType type,
+            Expensive isExpensive,
+            String search) {
+
+        try {
+            // Build specification with filters
+            Specification<Tool> spec = ToolSpecifications.withFilters(
+                    categoryId, status, type, isExpensive, search
+            );
+
+            // Apply pagination and sorting
+            Pageable pageable = PaginationUtil.toPageable(request);
+
+            // Execute query with specification and return Page directly
+            Page<Tool> toolPage = toolRepository.findAll(spec, pageable);
+
+            // Convert to DTO page
+            Page<ToolResponseDTO> toolDTOsPage = toolPage.map(this::convertToDTO);
+
+            return BaseResponseDTO.success("Tools retrieved successfully", toolDTOsPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving tools: " + e.getMessage());
+        }
+    }
+
+    public BaseResponseDTO<ToolResponseDTO> getToolById(Long id) {
+        try {
+            Tool tool = toolRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Tool not found"));
+            return BaseResponseDTO.success("Tool retrieved successfully", convertToDTO(tool));
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving tool: " + e.getMessage());
+        }
+    }
+
+    public BaseResponseDTO<ToolResponseDTO> updateTool(Long id, CreateToolDTO updateToolDTO) {
+        try {
+            Tool tool = toolRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Tool not found"));
+
+            // Check name uniqueness if changed
+            if (!tool.getName().equals(updateToolDTO.getName()) &&
+                    toolRepository.existsByNameIgnoreCase(updateToolDTO.getName())) {
+                return BaseResponseDTO.error("Tool with this name already exists");
+            }
+
+            // Update category if changed
+            if (!tool.getCategory().getId().equals(updateToolDTO.getCategoryId())) {
+                ToolCategory category = toolCategoryRepository.findById(updateToolDTO.getCategoryId())
+                        .orElseThrow(() -> new RuntimeException("Category not found"));
+                tool.setCategory(category);
+            }
+
+            // Handle image update
+            if (updateToolDTO.getImage() != null && !updateToolDTO.getImage().isEmpty()) {
+                // Handle image upload
+                String imageUrl = cloudinaryService.uploadFile(updateToolDTO.getImage());
+
+                // Update tool with new image URL
+                tool.setImageUrl(imageUrl);
+            }
+
+            // Update other fields
+            tool.setName(updateToolDTO.getName());
+            tool.setType(updateToolDTO.getType());
+            tool.setIsExpensive(updateToolDTO.getIsExpensive());
+            tool.setThreshold(updateToolDTO.getThreshold());
+            tool.setUpdatedAt(LocalDateTime.now());
+            Tool updatedTool = toolRepository.save(tool);
+
+            return BaseResponseDTO.success("Tool updated successfully", convertToDTO(updatedTool));
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error updating tool: " + e.getMessage());
+        }
+    }
+
+    public BaseResponseDTO<String> deleteTool(Long id) {
+        try {
+            Tool tool = toolRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Tool not found"));
+//            tool.setStatus(AccountStatus.INACTIVE);
+            toolRepository.delete(tool);
+
+            return BaseResponseDTO.success("Tool deleted successfully", "Tool with ID " + id + " deleted");
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error deleting tool: " + e.getMessage());
+        }
+    }
+
+    private ToolResponseDTO convertToDTO(Tool tool) {
+        ToolResponseDTO dto = new ToolResponseDTO();
+        dto.setId(tool.getId());
+        dto.setName(tool.getName());
+        dto.setCategoryId(tool.getCategory().getId());
+        dto.setCategoryName(tool.getCategory().getName());
+        dto.setType(tool.getType().name());
+        dto.setIsExpensive(tool.getIsExpensive());
+        dto.setThreshold(tool.getThreshold());
+        dto.setImageUrl(tool.getImageUrl());
+        dto.setStatus(tool.getStatus());
+        dto.setCreatedAt(tool.getCreatedAt());
+        return dto;
+    }
+
+
+
+
+//    MANAGERS - TOOL REQUESTS - TO CENTRAL OFFICE
+//    public BaseResponseDTO<ToolRequestResponseDTO> createToolRequest(CreateToolRequestDTO requestDTO) {
 //        try {
-//            if (toolRepository.existsByNameIgnoreCase(addNewToolDTO.getName())) {
-//                return BaseResponseDTO.error("Tool with this name already exists");
+//            User currentUser = securityUtil.getCurrentUser();
+//            Factory factory = currentUser.getFactory();
+//
+//            if (factory == null) {
+//                return BaseResponseDTO.error("Factory not found for current user");
 //            }
 //
-//            Optional<toolCategory> category = toolCategoryRepository.findById(addNewToolDTO.getCategoryId());
-//            if (category.isEmpty()) {
-//                return BaseResponseDTO.error("Category not found");
+//            // Validate all tools exist
+//            for (ToolRequestDTO toolRequest : requestDTO.getTools()) {
+//                if (!toolRepository.existsById(toolRequest.getToolId())) {
+//                    return BaseResponseDTO.error("Tool not found with ID: " + toolRequest.getToolId());
+//                }
 //            }
 //
-//            tool tool = new tool();
-//            tool.setName(addNewToolDTO.getName());
-//            tool.setCategory(category.get());
-//            tool.setType(addNewToolDTO.getType());
-//            tool.setIsExpensive(addNewToolDTO.getIsExpensive());
-//            tool.setThreshold(addNewToolDTO.getThreshold());
-//            tool.setQty(addNewToolDTO.getQuantity() != null ? addNewToolDTO.getQuantity() : 0);
+//            // Create tool request
+//            ToolRequest toolRequest = new ToolRequest();
+//            toolRequest.setRequestedBy(currentUser);
+//            toolRequest.setFactory(factory);
+//            toolRequest.setStatus(ToolRequestStatus.PENDING);
+//            toolRequest.setCreatedAt(LocalDateTime.now());
 //
-//            if (image != null && !image.isEmpty()) {
-////                tool.setImageUrl(image.getOriginalFilename());
-//                tool.setImageUrl(image.getOriginalFilename());
+//            ToolRequest savedRequest = toolRequestRepository.save(toolRequest);
+//
+//            // Create request items
+//            List<ToolRequestItem> requestItems = new ArrayList<>();
+//            for (ToolRequestDTO toolRequestDTO : requestDTO.getTools()) {
+//                Tool tool = toolRepository.findById(toolRequestDTO.getToolId())
+//                        .orElseThrow(() -> new RuntimeException("Tool not found"));
+//
+//                ToolRequestItem item = new ToolRequestItem();
+//                item.setToolRequest(savedRequest);
+//                item.setTool(tool);
+//                item.setQuantity(toolRequestDTO.getQuantity());
+//                item.setCreatedAt(LocalDateTime.now());
+//
+//                requestItems.add(item);
 //            }
 //
-//            tool.setCreatedAt(LocalDateTime.now());
-//            tool.setUpdatedAt(LocalDateTime.now());
+//            savedRequest.setRequestItems(requestItems);
+//            ToolRequest finalRequest = toolRequestRepository.save(savedRequest);
 //
-//            tool savedTool = toolRepository.save(tool);
-//
-//            if (addNewToolDTO.getStorageAreaId() != null && addNewToolDTO.getQuantity() != null) {
-//                assignToolToStorageArea(savedTool, addNewToolDTO.getStorageAreaId(), addNewToolDTO.getQuantity());
-//            }
-//
-//            return BaseResponseDTO.success("Tool added successfully", convertToToolResponseDTO(savedTool));
+//            return BaseResponseDTO.success(
+//                    "Tool request created successfully",
+//                    convertToResponseDTO(finalRequest)
+//            );
 //
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error adding tool: " + e.getMessage());
+//            return BaseResponseDTO.error("Error creating tool request: " + e.getMessage());
 //        }
 //    }
 //
-//
-//    public BaseResponseDTO<List<ToolResponseDTO>> getAllTools() {
+//    public BaseResponseDTO<List<ToolRequestResponseDTO>> getMyToolRequests(BaseRequestDTO request) {
 //        try {
-//            List<tool> tools = toolRepository.findAll();
-//            List<ToolResponseDTO> toolResponseDTOs = tools.stream()
-//                    .map(this::convertToToolResponseDTO)
+//            User currentUser = securityUtil.getCurrentUser();
+//            Pageable pageable = PaginationUtil.toPageable(request);
+//
+//            Page<ToolRequest> requestPage = toolRequestRepository.findByRequestedBy(
+//                    currentUser, pageable);
+//
+//            List<ToolRequestResponseDTO> responseDTOs = requestPage.getContent().stream()
+//                    .map(this::convertToResponseDTO)
 //                    .collect(Collectors.toList());
-//            return BaseResponseDTO.success("Tools retrieved successfully", toolResponseDTOs);
+//
+//            return BaseResponseDTO.success("Tool requests retrieved successfully", responseDTOs);
+//
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving tools: " + e.getMessage());
+//            return BaseResponseDTO.error("Error retrieving tool requests: " + e.getMessage());
 //        }
 //    }
 //
-//
-//    public BaseResponseDTO<ToolResponseDTO> getToolById(Long id) {
+//    public BaseResponseDTO<List<ToolRequestResponseDTO>> getPendingRequests(BaseRequestDTO request) {
 //        try {
-//            Optional<tool> tool = toolRepository.findById(id);
-//            if (tool.isEmpty()) {
-//                return BaseResponseDTO.error("Tool not found");
-//            }
-//            return BaseResponseDTO.success("Tool retrieved successfully", convertToToolResponseDTO(tool.get()));
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving tool: " + e.getMessage());
-//        }
-//    }
+//            Pageable pageable = PaginationUtil.toPageable(request);
 //
+//            Page<ToolRequest> requestPage = toolRequestRepository.findByStatus(
+//                    ToolRequestStatus.PENDING, pageable);
 //
-//    public BaseResponseDTO<ToolResponseDTO> updateTool(Long id, AddNewToolDTO addNewToolDTO, MultipartFile image) throws IOException {
-//        try {
-//            Optional<tool> existingTool = toolRepository.findById(id);
-//            if (existingTool.isEmpty()) {
-//                return BaseResponseDTO.error("Tool not found");
-//            }
-//
-//            tool tool = existingTool.get();
-//            tool.setName(addNewToolDTO.getName());
-//            tool.setType(addNewToolDTO.getType());
-//            tool.setIsExpensive(addNewToolDTO.getIsExpensive());
-//            tool.setThreshold(addNewToolDTO.getThreshold());
-//
-//            if (addNewToolDTO.getQuantity() != null) {
-//                tool.setQty(addNewToolDTO.getQuantity());
-//            }
-//
-//            if (addNewToolDTO.getCategoryId() != null) {
-//                Optional<toolCategory> category = toolCategoryRepository.findById(addNewToolDTO.getCategoryId());
-//                category.ifPresent(tool::setCategory);
-//            }
-//
-//            if (image != null && !image.isEmpty()) {
-//                tool.setImageUrl(image.getOriginalFilename());
-//            }
-//
-//            tool.setUpdatedAt(LocalDateTime.now());
-//
-//            tool updatedTool = toolRepository.save(tool);
-//            return BaseResponseDTO.success("Tool updated successfully", convertToToolResponseDTO(updatedTool));
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error updating tool: " + e.getMessage());
-//        }
-//    }
-//
-//
-//    public BaseResponseDTO<String> deleteTool(Long id) {
-//        try {
-//            if (!toolRepository.existsById(id)) {
-//                return BaseResponseDTO.error("Tool not found");
-//            }
-//            toolRepository.deleteById(id);
-//            return BaseResponseDTO.success("Tool deleted successfully", "Tool with ID " + id + " deleted");
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error deleting tool: " + e.getMessage());
-//        }
-//    }
-//
-//
-//    public BaseResponseDTO<List<ToolResponseDTO>> getToolsByCategory(Long categoryId) {
-//        try {
-//            Optional<toolCategory> category = toolCategoryRepository.findById(categoryId);
-//            if (category.isEmpty()) {
-//                return BaseResponseDTO.error("Category not found");
-//            }
-//
-//            List<tool> tools = toolRepository.findByCategory(category.get());
-//            List<ToolResponseDTO> toolResponseDTOs = tools.stream()
-//                    .map(this::convertToToolResponseDTO)
+//            List<ToolRequestResponseDTO> responseDTOs = requestPage.getContent().stream()
+//                    .map(this::convertToResponseDTO)
 //                    .collect(Collectors.toList());
-//            return BaseResponseDTO.success("Tools retrieved successfully", toolResponseDTOs);
+//
+//            return BaseResponseDTO.success("Pending tool requests retrieved successfully", responseDTOs);
+//
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving tools by category: " + e.getMessage());
+//            return BaseResponseDTO.error("Error retrieving pending tool requests: " + e.getMessage());
 //        }
 //    }
 //
-//
-//    public BaseResponseDTO<String> createStorageArea(CreateStorageAreaDTO dto) {
+//    public BaseResponseDTO<ToolRequestResponseDTO> approveToolRequest(Long requestId) {
 //        try {
-//            boolean exists = storageAreaRepository.existsByRowNumAndColNumAndStack(
-//                    dto.getRowNum(), dto.getColNum(), dto.getStack());
-//            if (exists) {
-//                return BaseResponseDTO.error("Storage area with these coordinates already exists");
+//            ToolRequest toolRequest = toolRequestRepository.findById(requestId)
+//                    .orElseThrow(() -> new RuntimeException("Tool request not found"));
+//
+//            User currentUser = securityUtil.getCurrentUser();
+//
+//            // Update request status
+//            toolRequest.setStatus(ToolRequestStatus.APPROVED);
+//            toolRequest.setApprovedBy(currentUser);
+//            toolRequest.setApprovedAt(LocalDateTime.now());
+//            toolRequest.setUpdatedAt(LocalDateTime.now());
+//
+//            // Add tools to factory stock
+//            for (ToolRequestItem item : toolRequest.getRequestItems()) {
+//                factoryToolStockService.addToolsToFactoryStock(
+//                        item.getTool().getId(),
+//                        toolRequest.getFactory().getId(),
+//                        item.getQuantity()
+//                );
 //            }
 //
-//            storageArea storageArea = new storageArea();
-//            storageArea.setRowNum(dto.getRowNum());
-//            storageArea.setColNum(dto.getColNum());
-//            storageArea.setStack(dto.getStack());
-//            storageArea.setBucket(generateBucketName(dto.getRowNum(), dto.getColNum(), dto.getStack()));
-//            storageArea.setStatus("ACTIVE");
-//            storageArea.setCreatedAt(LocalDateTime.now());
-//            storageArea.setUpdatedAt(LocalDateTime.now());
+//            ToolRequest updatedRequest = toolRequestRepository.save(toolRequest);
 //
-//            storageAreaRepository.save(storageArea);
-//            return BaseResponseDTO.success("Storage area created successfully", "Storage area created with ID: " + storageArea.getId());
+//            return BaseResponseDTO.success(
+//                    "Tool request approved successfully",
+//                    convertToResponseDTO(updatedRequest)
+//            );
 //
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error creating storage area: " + e.getMessage());
+//            return BaseResponseDTO.error("Error approving tool request: " + e.getMessage());
 //        }
 //    }
 //
-//
-//    public BaseResponseDTO<List<StorageAreaResponseDTO>> getAllStorageAreasForPlantHead() {
+//    public BaseResponseDTO<ToolRequestResponseDTO> markAsReceived(Long requestId) {
 //        try {
-//            List<storageArea> storageAreas = storageAreaRepository.findAll();
-//            List<StorageAreaResponseDTO> storageAreaResponseDTOs = storageAreas.stream()
-//                    .map(this::convertToStorageAreaResponseDTO)
-//                    .collect(Collectors.toList());
-//            return BaseResponseDTO.success("Storage areas retrieved successfully", storageAreaResponseDTOs);
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving storage areas: " + e.getMessage());
-//        }
-//    }
+//            ToolRequest toolRequest = toolRequestRepository.findById(requestId)
+//                    .orElseThrow(() -> new RuntimeException("Tool request not found"));
 //
-//
-//    public BaseResponseDTO<ToolResponseDTO> assignToolToFactory(AssignToolToFactoryDTO dto) {
-//        try {
-//            Optional<tool> tool = toolRepository.findById(dto.getToolId());
-//            if (tool.isEmpty()) {
-//                return BaseResponseDTO.error("Tool not found");
+//            if (toolRequest.getStatus() != ToolRequestStatus.APPROVED) {
+//                return BaseResponseDTO.error("Only approved requests can be marked as received");
 //            }
 //
-//            Optional<storageArea> storageArea = storageAreaRepository.findById(dto.getStorageAreaId());
-//            if (storageArea.isEmpty()) {
-//                return BaseResponseDTO.error("Storage area not found");
-//            }
+//            toolRequest.setStatus(ToolRequestStatus.COMPLETED);
+//            toolRequest.setUpdatedAt(LocalDateTime.now());
 //
-//            factory factory = storageArea.get().getFactory();
+//            ToolRequest updatedRequest = toolRequestRepository.save(toolRequest);
 //
-//            Optional<ToolStorageMapping> existingMapping = toolStorageMappingRepository.findByFactoryAndTool(factory, tool.get());
-//
-//            ToolStorageMapping mapping;
-//            if (existingMapping.isPresent()) {
-//                mapping = existingMapping.get();
-//                mapping.setQuantity(mapping.getQuantity() + dto.getQuantity());
-//            } else {
-//                mapping = new ToolStorageMapping();
-//                mapping.setTool(tool.get());
-//                mapping.setFactory(factory);
-//                mapping.setStorageArea(storageArea.get());
-//                mapping.setQuantity(dto.getQuantity());
-//                mapping.setCreatedAt(LocalDateTime.now());
-//            }
-//            mapping.setUpdatedAt(LocalDateTime.now());
-//
-//            toolStorageMappingRepository.save(mapping);
-//
-//            tool.get().setQty(tool.get().getQty() + dto.getQuantity());
-//            toolRepository.save(tool.get());
-//
-//            return BaseResponseDTO.success("Tool assigned to factory successfully", convertToToolResponseDTO(tool.get()));
+//            return BaseResponseDTO.success(
+//                    "Tool request marked as received successfully",
+//                    convertToResponseDTO(updatedRequest)
+//            );
 //
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error assigning tool to factory: " + e.getMessage());
+//            return BaseResponseDTO.error("Error marking request as received: " + e.getMessage());
 //        }
 //    }
 //
-//    private void assignToolToStorageArea(tool tool, Long storageAreaId, Integer quantity) {
-//        try {
-//            Optional<storageArea> storageArea = storageAreaRepository.findById(storageAreaId);
-//            if (storageArea.isPresent()) {
-//                ToolStorageMapping mapping = new ToolStorageMapping();
-//                mapping.setTool(tool);
-//                mapping.setStorageArea(storageArea.get());
-//                mapping.setFactory(storageArea.get().getFactory());
-//                mapping.setQuantity(quantity);
-//                mapping.setCreatedAt(LocalDateTime.now());
-//                mapping.setUpdatedAt(LocalDateTime.now());
-//                toolStorageMappingRepository.save(mapping);
-//            }
-//        } catch (Exception e) {
-//            throw new RuntimeException("Error assigning tool to storage area: " + e.getMessage());
-//        }
-//    }
+//    private ToolRequestResponseDTO convertToResponseDTO(ToolRequest toolRequest) {
+//        ToolRequestResponseDTO dto = new ToolRequestResponseDTO();
+//        dto.setId(toolRequest.getId());
+//        dto.setFactoryName(toolRequest.getFactory().getName());
+//        dto.setRequestedByName(toolRequest.getRequestedBy().getName());
+//        dto.setStatus(toolRequest.getStatus());
+//        dto.setCreatedAt(toolRequest.getCreatedAt());
+//        dto.setApprovedAt(toolRequest.getApprovedAt());
 //
-//    private String generateBucketName(Integer rowNum, Integer colNum, Integer stack) {
-//        return "R" + rowNum + "C" + colNum + "S" + stack;
-//    }
-//
-//    private ToolResponseDTO convertToToolResponseDTO(tool tool) {
-//        ToolResponseDTO dto = new ToolResponseDTO();
-//        dto.setId(tool.getId());
-//        dto.setName(tool.getName());
-//        dto.setCategoryName(tool.getCategory() != null ? tool.getCategory().getName() : null);
-//        dto.setType(tool.getType() != null ? tool.getType().name() : null);
-//        dto.setIsExpensive(tool.getIsExpensive());
-//        dto.setThreshold(tool.getThreshold());
-//        dto.setQuantity(tool.getQty());
-//        dto.setImage(tool.getImageUrl());
-//
-//        if (tool.getStorageArea() != null) {
-//            dto.setStorageAreaName(tool.getStorageArea().getBucket());
-//            dto.setFactoryName(tool.getStorageArea().getFactory().getName());
-//        }
+//        List<ToolRequestItemDTO> itemDTOs = toolRequest.getRequestItems().stream()
+//                .map(this::convertToItemDTO)
+//                .collect(Collectors.toList());
+//        dto.setTools(itemDTOs);
 //
 //        return dto;
 //    }
 //
-//    private StorageAreaResponseDTO convertToStorageAreaResponseDTO(storageArea storageArea) {
-//        StorageAreaResponseDTO dto = new StorageAreaResponseDTO();
-//        dto.setId(storageArea.getId());
-//        dto.setBucket(storageArea.getBucket());
-//        dto.setRowNum(storageArea.getRowNum());
-//        dto.setColNum(storageArea.getColNum());
-//        dto.setStack(storageArea.getStack());
-//        dto.setFactoryName(storageArea.getFactory() != null ? storageArea.getFactory().getName() : null);
+//    private ToolRequestItemDTO convertToItemDTO(ToolRequestItem item) {
+//        ToolRequestItemDTO dto = new ToolRequestItemDTO();
+//        dto.setToolId(item.getTool().getId());
+//        dto.setToolName(item.getTool().getName());
+//        dto.setQuantity(item.getQuantity());
 //        return dto;
 //    }
-//}
+}

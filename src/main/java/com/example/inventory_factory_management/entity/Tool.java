@@ -8,12 +8,15 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name = "tool")
-//@Data
+@Table(name = "tools")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -46,15 +49,20 @@ public class Tool {
     @Column(name = "threshold")
     private Integer threshold;
 
-    @Column(name = "qty")
-    private Integer qty;
-
-    @Column(name = "account_status")
+    @Column(name = "tool_status")
     @Enumerated(EnumType.STRING)
     private AccountStatus status ;
 
+    @CreationTimestamp
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    @UpdateTimestamp
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
+    @OneToMany
+    private List<ToolStock> toolStockList =new ArrayList<>();
+
+
 }
-

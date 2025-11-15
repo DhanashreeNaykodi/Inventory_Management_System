@@ -5,7 +5,7 @@ import com.example.inventory_factory_management.constants.AccountStatus;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
-public class ProductSpecification {
+public class ProductSpecifications {
 
     public static Specification<Product> withFilters(String search, Long categoryId, AccountStatus status) {
         return (Root<Product> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {

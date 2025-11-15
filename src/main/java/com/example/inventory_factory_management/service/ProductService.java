@@ -2,7 +2,7 @@ package com.example.inventory_factory_management.service;
 
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.specifications.ProductCategorySpecifications;
-import com.example.inventory_factory_management.specifications.ProductSpecification;
+import com.example.inventory_factory_management.specifications.ProductSpecifications;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.Product;
 import com.example.inventory_factory_management.entity.ProductCategory;
@@ -11,7 +11,6 @@ import com.example.inventory_factory_management.repository.ProductRepository;
 import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -412,7 +411,7 @@ public class ProductService {
             }
 
             // Build specification with filters
-            Specification<Product> spec = ProductSpecification.withFilters(search, categoryId, accountStatus);
+            Specification<Product> spec = ProductSpecifications.withFilters(search, categoryId, accountStatus);
 
             Page<Product> productPage;
             if (spec != null) {
@@ -434,7 +433,7 @@ public class ProductService {
 //            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
-            Specification<Product> spec = ProductSpecification.withFilters(search, null, AccountStatus.ACTIVE);
+            Specification<Product> spec = ProductSpecifications.withFilters(search, null, AccountStatus.ACTIVE);
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Products search completed successfully", dtoPage);
@@ -449,7 +448,7 @@ public class ProductService {
 //            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
-            Specification<Product> spec = ProductSpecification.withFilters(null, categoryId, AccountStatus.ACTIVE);
+            Specification<Product> spec = ProductSpecifications.withFilters(null, categoryId, AccountStatus.ACTIVE);
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Products retrieved by category successfully", dtoPage);
