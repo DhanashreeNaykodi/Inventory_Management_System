@@ -20,7 +20,7 @@ public class ToolIssuance {
 
     @ManyToOne
     @JoinColumn(name = "tool_request_id")
-    private ToolRequest request;
+    private WorkerToolRequest request;
 
     //in lavanya's code
 //    @ManyToOne @JoinColumn(name = "tool_id")

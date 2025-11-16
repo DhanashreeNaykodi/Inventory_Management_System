@@ -64,5 +64,4 @@ public class Tool {
     @OneToMany
     private List<ToolStock> toolStockList =new ArrayList<>();
 
-
 }

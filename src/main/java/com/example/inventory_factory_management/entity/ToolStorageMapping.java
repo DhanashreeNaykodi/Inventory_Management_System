@@ -31,5 +31,8 @@ public class ToolStorageMapping {
     @JoinColumn(name = "storage_area_id")
     private StorageArea storageArea;
 
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity = 0;
+
     private LocalDateTime createdAt ;
 }

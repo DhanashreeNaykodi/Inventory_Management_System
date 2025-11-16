@@ -3,6 +3,8 @@ package com.example.inventory_factory_management.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -40,7 +42,16 @@ public class ToolStock {
     @Column(name = "issued_quantity", nullable = false)
     private Long issuedQuantity = 0L;
 
-    @LastModifiedDate
-    @Column(name = "last_updated_at", nullable = false)
+    // Either update your entity to match database column names:
+    @CreationTimestamp
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @UpdateTimestamp
+    @Column(name = "last_updated_at")  // Add this
     private LocalDateTime lastUpdatedAt;
 }

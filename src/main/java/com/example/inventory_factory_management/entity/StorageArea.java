@@ -23,24 +23,31 @@ public class StorageArea {
     @JoinColumn(name = "factory_id")
     private Factory factory;
 
-//    in lavanya's code
-    @ManyToOne
-    @JoinColumn(name = "tool_id")
-    private Tool tool;
-
     @OneToMany(mappedBy = "storageArea", cascade = CascadeType.ALL)
     private List<ToolStorageMapping> toolStorageMappings;
 
-    @JoinColumn(name = "rowNum")
+    @Column(name = "rowNum")
     private Integer rowNum;
 
-    @JoinColumn(name = "colNum")
+    @Column(name = "colNum")
     private Integer colNum;
 
-    @JoinColumn(name = "stack")
+    @Column(name = "stack")
     private Integer stack;
 
-    @JoinColumn(name = "bucket")
+    @Column(name = "bucket")
     private String bucket;
 
+    // Add this field for easy location code access
+    @Column(name = "location_code", unique = true)
+    private String locationCode;
+
+    // Add this method to generate location code
+    @PrePersist
+    @PreUpdate
+    public void generateLocationCode() {
+        if (this.rowNum != null && this.colNum != null && this.stack != null && this.bucket != null) {
+            this.locationCode = "R" + this.rowNum + "C" + this.colNum + "S" + this.stack + "B" + this.bucket;
+        }
+    }
 }

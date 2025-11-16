@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Getter
 @Setter
-public class ToolRequest {
+public class WorkerToolRequest {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

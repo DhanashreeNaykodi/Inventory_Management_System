@@ -8,12 +8,14 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class StorageAreaResponseDTO {
+public class StorageAreaDTO {
 
     private Long id;
-    private String bucket;
+    private String locationCode;
     private Integer rowNum;
     private Integer colNum;
     private Integer stack;
+    private String bucket;
+    private Long factoryId;
     private String factoryName;
 }

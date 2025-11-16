@@ -3,11 +3,13 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.constants.Expensive;
+import com.example.inventory_factory_management.constants.ToolOrProductRequestStatus;
 import com.example.inventory_factory_management.constants.ToolType;
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.ToolCategoryService;
 import com.example.inventory_factory_management.service.ToolService;
 import com.example.inventory_factory_management.utils.PaginationUtil;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -123,49 +125,45 @@ public class ToolController {
     }
 
 
+//  Manager adds tools into their factory
+    @PostMapping("/stock/add")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<BaseResponseDTO<String>> addToolsToFactoryStock(
+            @Valid @RequestBody ToolRequestDTO requestDTO) {
+         BaseResponseDTO<String> response = toolService.addToolsToFactoryStock(requestDTO);
+         HttpStatus status = response.isSuccess() ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST;
+         return ResponseEntity.status(status).body(response);
+    }
 
-//    private final ToolRequestService toolRequestService;
-//
-//    @PostMapping("/request")
-//    @PreAuthorize("hasRole('FACTORY_MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<ToolRequestResponseDTO>> createToolRequest(
-//            @RequestBody CreateToolRequestDTO requestDTO) {
-//        BaseResponseDTO<ToolRequestResponseDTO> response = toolRequestService.createToolRequest(requestDTO);
-//        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-//    }
-//
-//    @GetMapping("/my-requests")
-//    @PreAuthorize("hasRole('FACTORY_MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<List<ToolRequestResponseDTO>>> getMyToolRequests(
-//            BaseRequestDTO request) {
-//        BaseResponseDTO<List<ToolRequestResponseDTO>> response =
-//                toolRequestService.getMyToolRequests(request);
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    @GetMapping("/requests/pending")
-//    @PreAuthorize("hasRole('CHIEF_OFFICER')")
-//    public ResponseEntity<BaseResponseDTO<List<ToolRequestResponseDTO>>> getPendingRequests(
-//            BaseRequestDTO request) {
-//        BaseResponseDTO<List<ToolRequestResponseDTO>> response =
-//                toolRequestService.getPendingRequests(request);
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    @PutMapping("/requests/{id}/approve")
-//    @PreAuthorize("hasRole('CHIEF_OFFICER')")
-//    public ResponseEntity<BaseResponseDTO<ToolRequestResponseDTO>> approveToolRequest(
-//            @PathVariable Long id) {
-//        BaseResponseDTO<ToolRequestResponseDTO> response = toolRequestService.approveToolRequest(id);
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    @PutMapping("/requests/{id}/receive")
-//    @PreAuthorize("hasRole('FACTORY_MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<ToolRequestResponseDTO>> markAsReceived(
-//            @PathVariable Long id) {
-//        BaseResponseDTO<ToolRequestResponseDTO> response = toolRequestService.markAsReceived(id);
-//        return ResponseEntity.ok(response);
-//    }
 
+    @GetMapping("/stock/my-factory")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<BaseResponseDTO<Page<ToolStockResponseDTO>>> getMyFactoryTools(
+            @ModelAttribute BaseRequestDTO request) {
+        BaseResponseDTO<Page<ToolStockResponseDTO>> response = toolService.getMyFactoryTools(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/stock/my-factory/storage-details/{toolId}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<BaseResponseDTO<ToolStorageDetailDTO>> getToolStorageDetails(@PathVariable Long toolId) {
+        BaseResponseDTO<ToolStorageDetailDTO> response = toolService.getToolStorageDetails(toolId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/storage-locations/codes")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<BaseResponseDTO<Page<String>>> getStorageLocationCodes(
+            @ModelAttribute BaseRequestDTO request) {
+        BaseResponseDTO<Page<String>> response = toolService.getStorageLocationCodes(request);
+        return ResponseEntity.ok(response);
+    }
+
+    //  without pagination for dropdown
+//    @GetMapping("/storage-locations/all-codes")
+//    @PreAuthorize("hasRole('MANAGER')")
+//    public ResponseEntity<BaseResponseDTO<List<String>>> getAllStorageLocationCodes() {
+//        BaseResponseDTO<List<String>> response = toolService.getAllStorageLocationCodes();
+//        return ResponseEntity.ok(response);
+//    }
 }

@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @Getter
 @Setter
-public class UpdateStockDTO {
+public class UpdateProductStockDTO {
 
     private Long productId;
     private Integer quantity;

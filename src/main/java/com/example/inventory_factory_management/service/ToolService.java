@@ -1,6 +1,5 @@
 package com.example.inventory_factory_management.service;
 
-
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.constants.Expensive;
 import com.example.inventory_factory_management.constants.ToolType;
@@ -9,16 +8,20 @@ import com.example.inventory_factory_management.entity.*;
 import com.example.inventory_factory_management.repository.*;
 import com.example.inventory_factory_management.specifications.ToolSpecifications;
 import com.example.inventory_factory_management.utils.PaginationUtil;
+import com.example.inventory_factory_management.utils.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +36,18 @@ public class ToolService {
     @Autowired
     private CloudinaryService cloudinaryService;
 
+    @Autowired
+    private final ToolStockRepository toolStockRepository;
+    @Autowired
+    private final SecurityUtil securityUtils;
+    @Autowired
+    private FactoryRepository factoryRepository;
+
+    @Autowired
+    private final StorageAreaRepository storageAreaRepository;
+
+    @Autowired
+    private final ToolStorageMappingRepository toolStorageMappingRepository;
 
 
     public BaseResponseDTO<ToolResponseDTO> createTool(CreateToolDTO createToolDTO) {
@@ -183,178 +198,288 @@ public class ToolService {
 
 
 
+//    MANAGERS - ADDING TOOLS INTO STOCK
 
-//    MANAGERS - TOOL REQUESTS - TO CENTRAL OFFICE
-//    public BaseResponseDTO<ToolRequestResponseDTO> createToolRequest(CreateToolRequestDTO requestDTO) {
+    public BaseResponseDTO<String> addToolsToFactoryStock(ToolRequestDTO requestDTO) {
 //        try {
-//            User currentUser = securityUtil.getCurrentUser();
-//            Factory factory = currentUser.getFactory();
+            User currentUser = securityUtils.getCurrentUser();
+
+            if (!currentUser.getRole().name().equals("MANAGER")) {
+                return BaseResponseDTO.error("Only MANAGER can add tools to factory stock");
+            }
+
+            Factory factory = currentUser.getUserFactories().stream()
+                    .findFirst()
+                    .map(UserFactory::getFactory)
+                    .orElse(null);
+
+            if (factory == null) {
+                return BaseResponseDTO.error("Factory not found for current user");
+            }
+
+            // Validate all tools exist, quantities are positive, and storage locations exist
+            for (int i = 0; i < requestDTO.getTool_ids().size(); i++) {
+                Long toolId = requestDTO.getTool_ids().get(i);
+                Integer quantity = requestDTO.getQuantities().get(i);
+                String storageLocation = requestDTO.getStorage_locations().get(i);
+
+                if (!toolRepository.existsById(toolId)) {
+                    throw new RuntimeException("Tool not found with ID: " + toolId);
+                }
+
+                if (quantity <= 0) {
+                    throw new RuntimeException("Quantity must be positive for tool ID: " + toolId);
+                }
+
+                // AUTO-PREPEND FACTORY PREFIX: Convert "R1C1S1B1" to "F3_R1C1S1B1"
+                String fullLocationCode = "F" + factory.getFactoryId() + "_" + storageLocation;
+
+                // Validate storage location exists with the full code
+                Optional<StorageArea> storageArea = storageAreaRepository.findByLocationCode(fullLocationCode);
+
+                if (storageArea.isEmpty()) {
+                    throw new RuntimeException("Storage location not found: " + storageLocation + " (looking for: " + fullLocationCode + ")");
+                }
+//                if (!storageArea.get().getFactory().getFactoryId().equals(factory.getFactoryId())) {
+//                    throw new RuntimeException("Storage location " + storageLocation + " does not belong to your factory");
+//                }
+            }
+
+            // Add tools to factory stock with storage locations
+            for (int i = 0; i < requestDTO.getTool_ids().size(); i++) {
+                Long toolId = requestDTO.getTool_ids().get(i);
+                Integer quantity = requestDTO.getQuantities().get(i);
+                String storageLocation = requestDTO.getStorage_locations().get(i);
+
+                // Fetch tool entity
+                Tool tool = toolRepository.findById(toolId)
+                        .orElseThrow(() -> new RuntimeException("Tool not found with ID: " + toolId));
+
+                // AUTO-PREPEND FACTORY PREFIX again for the actual operation
+                String fullLocationCode = "F" + factory.getFactoryId() + "_" + storageLocation;
+                StorageArea storageArea = storageAreaRepository.findByLocationCode(fullLocationCode)
+                        .orElseThrow(() -> new RuntimeException("Storage location not found: " + storageLocation));
+
+                // Add to factory stock
+                addToolToFactoryStock(tool, factory, quantity);
+                // Create storage mapping
+                addToolToStorageLocation(tool, factory, storageArea, quantity);
+            }
+
+            return BaseResponseDTO.success(
+                    "Tools added to factory stock successfully",
+                    "Added " + requestDTO.getTool_ids().size() + " tool(s) to factory stock with storage locations"
+            );
+
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Error adding tools to factory stock: " + e.getMessage());
+//        }
+    }
+
+    private void addToolToStorageLocation(Tool tool, Factory factory, StorageArea storageArea, Integer quantity) {
+        // Check if tool already exists in this storage location
+        Optional<ToolStorageMapping> existingMapping = toolStorageMappingRepository
+                .findByFactoryFactoryIdAndToolIdAndStorageAreaLocationCode(
+                        factory.getFactoryId(), tool.getId(), storageArea.getLocationCode());
+
+        if (existingMapping.isPresent()) {
+            // Update existing mapping quantity
+            ToolStorageMapping mapping = existingMapping.get();
+            mapping.setQuantity(mapping.getQuantity() + quantity);
+            toolStorageMappingRepository.save(mapping);
+            System.out.println("Updated storage mapping for tool: " + tool.getName() +
+                    " in location: " + storageArea.getLocationCode() +
+                    ", new quantity: " + mapping.getQuantity());
+        } else {
+            // Create new storage mapping
+            ToolStorageMapping newMapping = new ToolStorageMapping();
+            newMapping.setFactory(factory);
+            newMapping.setTool(tool);
+            newMapping.setStorageArea(storageArea);
+            newMapping.setQuantity(quantity);
+            newMapping.setCreatedAt(LocalDateTime.now());
+            toolStorageMappingRepository.save(newMapping);
+            System.out.println("Created new storage mapping for tool: " + tool.getName() +
+                    " in location: " + storageArea.getLocationCode() +
+                    ", quantity: " + quantity);
+        }
+    }
+
+    private void addToolToFactoryStock(Tool tool, Factory factory, Integer quantity) {
+        Optional<ToolStock> existingStock = toolStockRepository.findByToolIdAndFactoryFactoryId(tool.getId(), factory.getFactoryId());
+
+        if (existingStock.isPresent()) {
+            ToolStock stock = existingStock.get();
+            stock.setTotalQuantity(stock.getTotalQuantity() + quantity);
+            stock.setAvailableQuantity(stock.getAvailableQuantity() + quantity);
+            stock.setUpdatedAt(LocalDateTime.now());
+            toolStockRepository.save(stock);
+            System.out.println("Updated existing stock for tool: " + tool.getName() + ", new quantity: " + stock.getTotalQuantity());
+        } else {
+            ToolStock newStock = new ToolStock();
+            newStock.setFactory(factory);
+            newStock.setTool(tool);
+            newStock.setTotalQuantity(quantity.longValue());
+            newStock.setAvailableQuantity(quantity.longValue());
+            newStock.setCreatedAt(LocalDateTime.now());
+            newStock.setUpdatedAt(LocalDateTime.now());
+            toolStockRepository.save(newStock);
+            System.out.println("Created new stock for tool: " + tool.getName() + ", quantity: " + quantity);
+        }
+    }
+
+    public BaseResponseDTO<Page<ToolStockResponseDTO>> getMyFactoryTools(BaseRequestDTO request) {
+        try {
+            User currentUser = securityUtils.getCurrentUser();
+
+            Factory factory = currentUser.getUserFactories().stream()
+                    .findFirst()
+                    .map(UserFactory::getFactory)
+                    .orElse(null);
+
+            if (factory == null) {
+                return BaseResponseDTO.error("Factory not found for current user");
+            }
+
+            Pageable pageable = PaginationUtil.toPageable(request);
+            Page<ToolStock> toolStockPage = toolStockRepository.findByFactoryFactoryId(factory.getFactoryId(), pageable);
+            Page<ToolStockResponseDTO> toolStockDTOsPage = toolStockPage.map(this::convertToToolStockDTO);
+
+            return BaseResponseDTO.success("Factory tools retrieved successfully", toolStockDTOsPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving factory tools: " + e.getMessage());
+        }
+    }
+
+    public BaseResponseDTO<ToolStorageDetailDTO> getToolStorageDetails(Long toolId) {
+        try {
+            User currentUser = securityUtils.getCurrentUser();
+
+            Factory factory = currentUser.getUserFactories().stream()
+                    .findFirst()
+                    .map(UserFactory::getFactory)
+                    .orElse(null);
+
+            if (factory == null) {
+                return BaseResponseDTO.error("Factory not found for current user");
+            }
+
+            // Get tool stock
+            ToolStock toolStock = toolStockRepository.findByToolIdAndFactoryFactoryId(toolId, factory.getFactoryId())
+                    .orElseThrow(() -> new RuntimeException("Tool not found in factory stock"));
+
+            // Build the DTO
+            ToolStorageDetailDTO dto = new ToolStorageDetailDTO();
+            dto.setToolId(toolStock.getTool().getId());
+            dto.setToolName(toolStock.getTool().getName());
+            dto.setToolCategory(toolStock.getTool().getCategory().getName());
+            dto.setToolType(toolStock.getTool().getType().name());
+            dto.setImageUrl(toolStock.getTool().getImageUrl());
+            dto.setTotalQuantityInFactory(toolStock.getTotalQuantity());
+            dto.setAvailableQuantity(toolStock.getAvailableQuantity());
+
+            // Get storage locations
+            List<ToolStorageMapping> storageMappings = toolStorageMappingRepository
+                    .findByToolIdAndFactoryFactoryId(toolId, factory.getFactoryId());
+
+            List<ToolStorageDetailDTO.StorageLocationDetail> locationDetails = storageMappings.stream()
+                    .map(mapping -> new ToolStorageDetailDTO.StorageLocationDetail(
+                            mapping.getStorageArea().getLocationCode(),
+                            mapping.getStorageArea().getRowNum(),
+                            mapping.getStorageArea().getColNum(),
+                            mapping.getStorageArea().getStack(),
+                            mapping.getStorageArea().getBucket(),
+                            mapping.getQuantity()
+                    ))
+                    .collect(Collectors.toList());
+
+            dto.setStorageLocations(locationDetails);
+
+            return BaseResponseDTO.success("Tool storage details retrieved successfully", dto);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving tool storage details: " + e.getMessage());
+        }
+    }
+
+
+    // method for paginated location codes
+    public BaseResponseDTO<Page<String>> getStorageLocationCodes(BaseRequestDTO request) {
+        try {
+            User currentUser = securityUtils.getCurrentUser();
+
+            Factory factory = currentUser.getUserFactories().stream()
+                    .findFirst()
+                    .map(UserFactory::getFactory)
+                    .orElse(null);
+
+            if (factory == null) {
+                return BaseResponseDTO.error("Factory not found for current user");
+            }
+//            Pageable pageable = PaginationUtil.toPageable(request);
+            // Simple pagination without any sorting
+            Pageable pageable = PageRequest.of(
+                    request.getPage() != null ? request.getPage() : 0,
+                    request.getSize() != null ? request.getSize() : 100
+                    // No Sort.by() - completely removes sorting
+            );
+
+            Page<StorageArea> storageAreaPage = storageAreaRepository.findByFactoryFactoryId(
+                    factory.getFactoryId(), pageable);
+
+//          REMOVE FACTORY PREFIX for clean response
+            Page<String> locationCodesPage = storageAreaPage.map(storageArea -> {
+                String fullCode = storageArea.getLocationCode();
+                // Remove "F3_" prefix to return clean "R1C1S1B1"
+                return fullCode.replace("F" + factory.getFactoryId() + "_", "");
+            });
+
+            return BaseResponseDTO.success("Storage location codes retrieved successfully", locationCodesPage);
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving storage location codes: " + e.getMessage());
+        }
+    }
+
+    // Alternative: If you want all location codes without pagination (for dropdown)
+//    public BaseResponseDTO<List<String>> getAllStorageLocationCodes() {
+//        try {
+//            User currentUser = securityUtils.getCurrentUser();
+//
+//            // Get manager's factory
+//            Factory factory = currentUser.getUserFactories().stream()
+//                    .findFirst()
+//                    .map(UserFactory::getFactory)
+//                    .orElse(null);
 //
 //            if (factory == null) {
 //                return BaseResponseDTO.error("Factory not found for current user");
 //            }
 //
-//            // Validate all tools exist
-//            for (ToolRequestDTO toolRequest : requestDTO.getTools()) {
-//                if (!toolRepository.existsById(toolRequest.getToolId())) {
-//                    return BaseResponseDTO.error("Tool not found with ID: " + toolRequest.getToolId());
-//                }
-//            }
+//            // Get all location codes for this factory (no pagination for dropdown)
+//            List<String> locationCodes = storageAreaRepository
+//                    .findLocationCodesByFactoryId(factory.getFactoryId());
 //
-//            // Create tool request
-//            ToolRequest toolRequest = new ToolRequest();
-//            toolRequest.setRequestedBy(currentUser);
-//            toolRequest.setFactory(factory);
-//            toolRequest.setStatus(ToolRequestStatus.PENDING);
-//            toolRequest.setCreatedAt(LocalDateTime.now());
-//
-//            ToolRequest savedRequest = toolRequestRepository.save(toolRequest);
-//
-//            // Create request items
-//            List<ToolRequestItem> requestItems = new ArrayList<>();
-//            for (ToolRequestDTO toolRequestDTO : requestDTO.getTools()) {
-//                Tool tool = toolRepository.findById(toolRequestDTO.getToolId())
-//                        .orElseThrow(() -> new RuntimeException("Tool not found"));
-//
-//                ToolRequestItem item = new ToolRequestItem();
-//                item.setToolRequest(savedRequest);
-//                item.setTool(tool);
-//                item.setQuantity(toolRequestDTO.getQuantity());
-//                item.setCreatedAt(LocalDateTime.now());
-//
-//                requestItems.add(item);
-//            }
-//
-//            savedRequest.setRequestItems(requestItems);
-//            ToolRequest finalRequest = toolRequestRepository.save(savedRequest);
-//
-//            return BaseResponseDTO.success(
-//                    "Tool request created successfully",
-//                    convertToResponseDTO(finalRequest)
-//            );
+//            return BaseResponseDTO.success("Storage location codes retrieved successfully", locationCodes);
 //
 //        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error creating tool request: " + e.getMessage());
+//            return BaseResponseDTO.error("Error retrieving storage location codes: " + e.getMessage());
 //        }
 //    }
-//
-//    public BaseResponseDTO<List<ToolRequestResponseDTO>> getMyToolRequests(BaseRequestDTO request) {
-//        try {
-//            User currentUser = securityUtil.getCurrentUser();
-//            Pageable pageable = PaginationUtil.toPageable(request);
-//
-//            Page<ToolRequest> requestPage = toolRequestRepository.findByRequestedBy(
-//                    currentUser, pageable);
-//
-//            List<ToolRequestResponseDTO> responseDTOs = requestPage.getContent().stream()
-//                    .map(this::convertToResponseDTO)
-//                    .collect(Collectors.toList());
-//
-//            return BaseResponseDTO.success("Tool requests retrieved successfully", responseDTOs);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving tool requests: " + e.getMessage());
-//        }
-//    }
-//
-//    public BaseResponseDTO<List<ToolRequestResponseDTO>> getPendingRequests(BaseRequestDTO request) {
-//        try {
-//            Pageable pageable = PaginationUtil.toPageable(request);
-//
-//            Page<ToolRequest> requestPage = toolRequestRepository.findByStatus(
-//                    ToolRequestStatus.PENDING, pageable);
-//
-//            List<ToolRequestResponseDTO> responseDTOs = requestPage.getContent().stream()
-//                    .map(this::convertToResponseDTO)
-//                    .collect(Collectors.toList());
-//
-//            return BaseResponseDTO.success("Pending tool requests retrieved successfully", responseDTOs);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving pending tool requests: " + e.getMessage());
-//        }
-//    }
-//
-//    public BaseResponseDTO<ToolRequestResponseDTO> approveToolRequest(Long requestId) {
-//        try {
-//            ToolRequest toolRequest = toolRequestRepository.findById(requestId)
-//                    .orElseThrow(() -> new RuntimeException("Tool request not found"));
-//
-//            User currentUser = securityUtil.getCurrentUser();
-//
-//            // Update request status
-//            toolRequest.setStatus(ToolRequestStatus.APPROVED);
-//            toolRequest.setApprovedBy(currentUser);
-//            toolRequest.setApprovedAt(LocalDateTime.now());
-//            toolRequest.setUpdatedAt(LocalDateTime.now());
-//
-//            // Add tools to factory stock
-//            for (ToolRequestItem item : toolRequest.getRequestItems()) {
-//                factoryToolStockService.addToolsToFactoryStock(
-//                        item.getTool().getId(),
-//                        toolRequest.getFactory().getId(),
-//                        item.getQuantity()
-//                );
-//            }
-//
-//            ToolRequest updatedRequest = toolRequestRepository.save(toolRequest);
-//
-//            return BaseResponseDTO.success(
-//                    "Tool request approved successfully",
-//                    convertToResponseDTO(updatedRequest)
-//            );
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error approving tool request: " + e.getMessage());
-//        }
-//    }
-//
-//    public BaseResponseDTO<ToolRequestResponseDTO> markAsReceived(Long requestId) {
-//        try {
-//            ToolRequest toolRequest = toolRequestRepository.findById(requestId)
-//                    .orElseThrow(() -> new RuntimeException("Tool request not found"));
-//
-//            if (toolRequest.getStatus() != ToolRequestStatus.APPROVED) {
-//                return BaseResponseDTO.error("Only approved requests can be marked as received");
-//            }
-//
-//            toolRequest.setStatus(ToolRequestStatus.COMPLETED);
-//            toolRequest.setUpdatedAt(LocalDateTime.now());
-//
-//            ToolRequest updatedRequest = toolRequestRepository.save(toolRequest);
-//
-//            return BaseResponseDTO.success(
-//                    "Tool request marked as received successfully",
-//                    convertToResponseDTO(updatedRequest)
-//            );
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error marking request as received: " + e.getMessage());
-//        }
-//    }
-//
-//    private ToolRequestResponseDTO convertToResponseDTO(ToolRequest toolRequest) {
-//        ToolRequestResponseDTO dto = new ToolRequestResponseDTO();
-//        dto.setId(toolRequest.getId());
-//        dto.setFactoryName(toolRequest.getFactory().getName());
-//        dto.setRequestedByName(toolRequest.getRequestedBy().getName());
-//        dto.setStatus(toolRequest.getStatus());
-//        dto.setCreatedAt(toolRequest.getCreatedAt());
-//        dto.setApprovedAt(toolRequest.getApprovedAt());
-//
-//        List<ToolRequestItemDTO> itemDTOs = toolRequest.getRequestItems().stream()
-//                .map(this::convertToItemDTO)
-//                .collect(Collectors.toList());
-//        dto.setTools(itemDTOs);
-//
-//        return dto;
-//    }
-//
-//    private ToolRequestItemDTO convertToItemDTO(ToolRequestItem item) {
-//        ToolRequestItemDTO dto = new ToolRequestItemDTO();
-//        dto.setToolId(item.getTool().getId());
-//        dto.setToolName(item.getTool().getName());
-//        dto.setQuantity(item.getQuantity());
-//        return dto;
-//    }
+
+    private ToolStockResponseDTO convertToToolStockDTO(ToolStock toolStock) {
+        ToolStockResponseDTO dto = new ToolStockResponseDTO();
+        dto.setId(toolStock.getId());
+        dto.setToolId(toolStock.getTool().getId());
+        dto.setToolName(toolStock.getTool().getName());
+        dto.setToolCategory(toolStock.getTool().getCategory().getName());
+        dto.setToolType(toolStock.getTool().getType().name());
+        dto.setIsExpensive(toolStock.getTool().getIsExpensive());
+        dto.setImageUrl(toolStock.getTool().getImageUrl());
+        dto.setTotalQuantity(toolStock.getTotalQuantity());
+        dto.setAvailableQuantity(toolStock.getAvailableQuantity());
+        dto.setIssuedQuantity(toolStock.getIssuedQuantity());
+        dto.setLastUpdatedAt(toolStock.getLastUpdatedAt());
+        return dto;
+    }
 }
