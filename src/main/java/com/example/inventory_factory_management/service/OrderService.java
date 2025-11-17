@@ -9,6 +9,7 @@ import com.example.inventory_factory_management.repository.*;
 import com.example.inventory_factory_management.specifications.OrderSpecifications;
 import com.example.inventory_factory_management.utils.PaginationUtil;
 import com.example.inventory_factory_management.utils.SecurityUtil;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -146,6 +147,8 @@ public class OrderService {
         orderRepository.save(order);
     }
 
+
+    @Transactional
     public void processPayment(Long orderId) {
         User currentUser = securityUtil.getCurrentUser();
         Long distributorId = currentUser.getUserId();
