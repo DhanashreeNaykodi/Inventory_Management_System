@@ -21,7 +21,7 @@ public class CentralOfficeInventory {
 
     @ManyToOne
     @JoinColumn(name = "product_id")
-    private Product product;
+    private Product product;  //should be Long productId
 
     @Column(name = "quantity")
     private Long quantity = 0L;

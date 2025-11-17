@@ -1,6 +1,8 @@
 package com.example.inventory_factory_management.service;
 
 
+import com.example.inventory_factory_management.constants.AccountStatus;
+import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
@@ -10,6 +12,7 @@ import com.example.inventory_factory_management.repository.UserFactoryRepository
 import com.example.inventory_factory_management.repository.UserRepository;
 import com.example.inventory_factory_management.utils.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,9 +41,9 @@ public class UserService {
     private SecurityUtil securityUtil;
 
 
-
     // Add this method to handle profile image upload
-    public BaseResponseDTO<UserDTO> updateProfile(Long userId, UserUpdateDTO userDTO, MultipartFile profileImage) {        try {
+    public BaseResponseDTO<UserDTO> updateProfile(Long userId, UserUpdateDTO userDTO, MultipartFile profileImage) {
+        try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -150,7 +153,7 @@ public class UserService {
                 break;
 
             case MANAGER:
-                // Managers can belong to multiple factories
+                // Managers belong to a factory
                 List<UserFactory> managerMappings = userFactoryRepository.findByUser(userEntity);
                 factoryInfo.addAll(managerMappings.stream()
                         .map(mapping -> {

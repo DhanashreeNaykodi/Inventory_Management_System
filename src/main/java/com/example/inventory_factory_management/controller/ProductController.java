@@ -37,6 +37,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/{id}/detail")
     public ResponseEntity<BaseResponseDTO<ProductDTO>> getProductDetail(@PathVariable Long id) {
         BaseResponseDTO<ProductDTO> response = productService.getProductDetail(id);
@@ -56,6 +57,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     @GetMapping("/productCount")
     public ResponseEntity<BaseResponseDTO<CountResponseDTO>> getCount() {
         BaseResponseDTO<CountResponseDTO> response = productService.getProductsCount();
@@ -64,6 +66,7 @@ public class ProductController {
 
 
     // UPDATED: Get all products with filtering
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER','CHIEF_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getAllProducts(
             @Valid @ModelAttribute BaseRequestDTO request,
@@ -76,6 +79,7 @@ public class ProductController {
     }
 
     // NEW: Search products by name
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products/search")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> searchProducts(
             @RequestParam String search,
@@ -86,6 +90,7 @@ public class ProductController {
     }
 
     // NEW: Get products by category
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products/category/{categoryId}")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getProductsByCategory(
             @PathVariable Long categoryId,

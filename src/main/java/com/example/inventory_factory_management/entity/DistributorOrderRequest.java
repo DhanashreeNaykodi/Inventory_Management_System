@@ -8,10 +8,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "distributor_order")
-//@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -20,29 +22,31 @@ public class DistributorOrderRequest {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Long id;
 
     @Column(name = "distributor_id")
     private Long distributorId;
 
-    @ManyToOne @JoinColumn(name = "order_item_id")
-    private OrderItem orderItem;
+    @Column(name = "distributor_name")
+    private String distributorName;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     @Column(name = "totalPrice")
     private BigDecimal totalPrice;
 
-    @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.PENDING;
 
     @Column(name = "rejectReason")
     private String rejectReason;
 
-//    @Column(name = "invoice")
-//    private Long invoiceId;
+    @Column(name = "order_date")
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @ManyToOne
-    @JoinColumn(name = "invoice_id")
-    private Invoice invoice;
+
+//    @ManyToOne
+//    @JoinColumn(name = "invoice_id")
+//    private Invoice invoice;
 }

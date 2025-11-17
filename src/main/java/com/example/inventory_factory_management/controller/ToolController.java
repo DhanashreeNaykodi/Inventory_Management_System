@@ -3,26 +3,21 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.constants.Expensive;
-import com.example.inventory_factory_management.constants.ToolOrProductRequestStatus;
 import com.example.inventory_factory_management.constants.ToolType;
 import com.example.inventory_factory_management.dto.*;
+//import com.example.inventory_factory_management.entity.ToolRequest;
 import com.example.inventory_factory_management.service.ToolCategoryService;
+//import com.example.inventory_factory_management.service.ToolRequestService;
 import com.example.inventory_factory_management.service.ToolService;
-import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/tools")
@@ -34,6 +29,9 @@ public class ToolController {
 
     @Autowired
     private ToolService toolService;
+
+//    @Autowired
+//    private ToolRequestService toolRequestService;
 
 
     @GetMapping("/tool-categories")
@@ -129,7 +127,7 @@ public class ToolController {
     @PostMapping("/stock/add")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<BaseResponseDTO<String>> addToolsToFactoryStock(
-            @Valid @RequestBody ToolRequestDTO requestDTO) {
+            @Valid @RequestBody AssignToolToFactoryDTO requestDTO) {
          BaseResponseDTO<String> response = toolService.addToolsToFactoryStock(requestDTO);
          HttpStatus status = response.isSuccess() ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST;
          return ResponseEntity.status(status).body(response);
@@ -166,4 +164,36 @@ public class ToolController {
 //        BaseResponseDTO<List<String>> response = toolService.getAllStorageLocationCodes();
 //        return ResponseEntity.ok(response);
 //    }
+
+
+    // Worker creates tool request
+//    @PostMapping("/requests/create")
+//    @PreAuthorize("hasRole('WORKER')")
+//    public ResponseEntity<BaseResponseDTO<WorkerToolResponseDTO>> createToolRequest(
+//            @Valid @RequestBody CreateToolRequestDTO requestDTO) {
+//        BaseResponseDTO<WorkerToolResponseDTO> response = toolRequestService.createToolRequest(requestDTO);
+//        HttpStatus status = response.isSuccess() ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST;
+//        return ResponseEntity.status(status).body(response);
+//    }
+//
+//    // Handle approval/rejection (Chief Supervisor & Manager)
+//    @PostMapping("/requests/handle/{requestId}")
+//    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
+//    public ResponseEntity<BaseResponseDTO<String>> handleToolRequest(
+//            @PathVariable Long requestId,
+//            @RequestParam String action,
+//            @RequestParam(required = false) String rejectionReason) {
+//        BaseResponseDTO<String> response = toolRequestService.handleToolRequest(requestId, action, rejectionReason);
+//        return ResponseEntity.ok(response);
+//    }
+//
+//    // Get pending requests for approval (Chief Supervisor & Manager)
+//    @GetMapping("/requests/pending")
+//    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
+//    public ResponseEntity<BaseResponseDTO<Page<WorkerToolResponseDTO>>> getPendingRequests(
+//            @ModelAttribute BaseRequestDTO request) {
+//        BaseResponseDTO<Page<WorkerToolResponseDTO>> response = toolRequestService.getPendingRequests(request);
+//        return ResponseEntity.ok(response);
+//    }
+
 }

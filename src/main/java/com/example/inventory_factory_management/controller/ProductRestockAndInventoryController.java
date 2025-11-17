@@ -23,7 +23,7 @@ public class ProductRestockAndInventoryController {
             @RequestParam(required = false) String productName,
             @RequestParam(required = false) Long minQuantity,
             @RequestParam(required = false) Long maxQuantity,
-            @RequestBody BaseRequestDTO requestDTO) {
+            BaseRequestDTO requestDTO) {
 
         return productRestockRequestService.getCentralOfficeInventory(
                 productId, productName, minQuantity, maxQuantity, requestDTO);
@@ -58,7 +58,7 @@ public class ProductRestockAndInventoryController {
     @GetMapping("/central-office/my-restock-requests")
     public BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> getMyRestockRequests(
             @RequestParam(required = false) RequestStatus status,
-            @RequestBody BaseRequestDTO requestDTO) {
+            BaseRequestDTO requestDTO) {
         return productRestockRequestService.getMyRestockRequests(status, requestDTO);
     }
 
@@ -67,7 +67,7 @@ public class ProductRestockAndInventoryController {
     @GetMapping("/factories/my-restock-requests")
     public BaseResponseDTO<Page<FactoryRestockResponseDTO>> getMyFactoryRestockRequests(
             @RequestParam(required = false) RequestStatus status,
-            @RequestBody BaseRequestDTO requestDTO) {
+            @ModelAttribute BaseRequestDTO requestDTO) {
         return productRestockRequestService.getMyFactoryRestockRequests(status, requestDTO);
     }
 }

@@ -5,9 +5,11 @@ import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
+import com.example.inventory_factory_management.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -20,6 +22,9 @@ public class SecurityUtil {
 
     @Autowired
     private UserFactoryRepository userFactoryRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -100,7 +105,27 @@ public class SecurityUtil {
                 return userFactories.get(0).getFactory().getFactoryId();
             }
         }
-
         return null;
+    }
+
+
+
+    public void sendWelcomeEmail(User user, String password) {
+        try {
+            String subject = "Welcome to Inventory Factory Management System - Manager Account Created";
+            String message = "Dear " + user.getUsername() + ",\n\n" +
+                    "Your manager account has been created successfully.\n\n" +
+                    "Your Login Credentials:\n" +
+                    "Email: " + user.getEmail() + "\n" +
+                    "Password: " + password + "\n\n" +
+                    "Please login and change your password immediately.\n\n" +
+                    "Login URL: http://localhost:8080/auth/login\n\n" +
+                    "Best regards,\n" +
+                    "Inventory Factory Management Team";
+
+            emailService.sendEmail(user.getEmail(), subject, message);
+        } catch (Exception e) {
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+        }
     }
 }

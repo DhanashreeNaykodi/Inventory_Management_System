@@ -1,31 +1,40 @@
 package com.example.inventory_factory_management.service;
 
 
-import com.example.inventory_factory_management.dto.BaseResponseDTO;
-import com.example.inventory_factory_management.dto.LoginDTO;
-import com.example.inventory_factory_management.dto.LoginResponseDTO;
-import com.example.inventory_factory_management.dto.SignupDTO;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.repository.UserRepository;
 import com.example.inventory_factory_management.security.JwtAuth;
+import com.example.inventory_factory_management.utils.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class AuthService {
 
+    @Autowired
     private UserRepository userRepository;
+    @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
     private JwtAuth jwtAuth;
+    @Autowired
     private TokenBlacklistService tokenBlacklistService;
+
+    @Autowired
+    private SecurityUtil securityUtil;
+
+    @Autowired
+    private EmailService emailService;
 
     @Autowired
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtAuth jwtAuth, TokenBlacklistService tokenBlacklistService) {
@@ -66,30 +75,58 @@ public class AuthService {
     }
 
 
-    public ResponseEntity<Map<String, Object>> signupService(SignupDTO signupDto) {
-
-        if(userRepository.findByEmail(signupDto.getEmail()).isPresent()) {
-            throw new RuntimeException("Cannot register distributor. Try with different email.");
+    public BaseResponseDTO<UserDTO> registerDistributor(RegisterDistributorDTO registerDTO) {
+        // Check if email already exists
+        if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already registered: " + registerDTO.getEmail());
         }
 
-        User user1 = new User();
-        user1.setEmail(signupDto.getEmail());
-//        user1.setImg(signupDto.getImage());
-        user1.setPhone(signupDto.getPhone());
-        user1.setUsername(signupDto.getManager_name());
+        // Check if user email already exists
+        if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already registered: " + registerDTO.getName() + "\n Login to your account.");
+        }
 
-        user1.setRole(Role.DISTRIBUTOR);
-        user1.setPassword(passwordEncoder.encode(user1.getEmail().substring(0,5) + user1.getPhone().toString().substring(0,5))); //send pwd through mail to distr
+        // Create new distributor user
+        User distributor = new User();
+        distributor.setUsername(registerDTO.getName());
+        distributor.setEmail(registerDTO.getEmail());
+        distributor.setPhone(Long.parseLong(registerDTO.getContactNumber()));
 
-        user1.setPassword(passwordEncoder.encode(user1.getEmail().substring(0,5) + user1.getPhone().toString().substring(0,5))); //send pwd through mail to distr
-        user1.setStatus(AccountStatus.ACTIVE);
+        String generatedPassword = registerDTO.getName().substring(0,3) + "@" + registerDTO.getContactNumber().toString().substring(0,7);
+        distributor.setPassword(passwordEncoder.encode(generatedPassword));
 
-        userRepository.save(user1);
+        distributor.setRole(Role.DISTRIBUTOR);
+        distributor.setStatus(AccountStatus.ACTIVE);
+        distributor.setCreatedAt(LocalDateTime.now());
+        distributor.setUpdatedAt(LocalDateTime.now());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Distributor registered successfully");
+        User savedDistributor = userRepository.save(distributor);
+        securityUtil.sendWelcomeEmail(savedDistributor, generatedPassword);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        UserDTO responseDTO = convertDistributorToDTO(savedDistributor);
+        return BaseResponseDTO.success("Manager created successfully", responseDTO);
+
+    }
+
+
+    private UserDTO convertDistributorToDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setUserId(user.getUserId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setImg(user.getImg());
+        dto.setPhone(user.getPhone() != null ? user.getPhone().toString() : null);
+        dto.setRole(user.getRole());
+        dto.setStatus(user.getStatus());
+        dto.setCreatedAt(user.getCreatedAt());
+        dto.setUpdatedAt(user.getUpdatedAt());
+
+        // For distributors, no factory information is set
+        dto.setFactoryId(null);
+        dto.setFactoryName(null);
+        dto.setFactoryRole(null);
+
+        return dto;
     }
 
 

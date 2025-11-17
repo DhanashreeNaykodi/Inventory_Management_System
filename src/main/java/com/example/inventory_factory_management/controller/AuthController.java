@@ -1,9 +1,7 @@
 package com.example.inventory_factory_management.controller;
 
 
-import com.example.inventory_factory_management.dto.LoginDTO;
-import com.example.inventory_factory_management.dto.LoginResponseDTO;
-import com.example.inventory_factory_management.dto.SignupDTO;
+import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +26,8 @@ public class AuthController {
 
     @PreAuthorize("hasRole('DISTRIBUTOR')")
     @PostMapping("/signup")
-    public ResponseEntity<Map<String, Object>> signupDistributor(@Valid @RequestBody SignupDTO signupDto) {
-        return authService.signupService(signupDto);
+    public BaseResponseDTO<UserDTO> signupDistributor(@Valid @RequestBody RegisterDistributorDTO registerDistributorDTO) {
+        return authService.registerDistributor(registerDistributorDTO);
     }
 
 //    @PostMapping("/logout")

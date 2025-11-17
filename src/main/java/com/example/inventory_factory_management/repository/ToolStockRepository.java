@@ -14,7 +14,6 @@ import java.util.Optional;
 public interface ToolStockRepository extends JpaRepository<ToolStock, Long> {
 //    Optional<ToolStock> findByToolIdAndFactoryFactoryId(Long toolId, Long factoryId);
 
-    // Add this method to ToolStockRepository
     Page<ToolStock> findByFactoryFactoryId(Long factoryId, Pageable pageable);
 
     @Query("SELECT ts FROM ToolStock ts WHERE ts.tool.id = :toolId AND ts.factory.factoryId = :factoryId")

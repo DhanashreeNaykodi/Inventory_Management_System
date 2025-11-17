@@ -1,6 +1,7 @@
 package com.example.inventory_factory_management.exceptions;
 
 
+import com.example.inventory_factory_management.dto.BaseResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,32 +17,22 @@ import java.util.stream.Collectors;
 public class GlobalExceptionClass {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, Object> errors = new HashMap<>();
-
-        // Get field-specific errors
-        List<String> errorMessages = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.toList());
-
-        errors.put("message", "Validation failed");
-//        errors.put("timestamp", LocalDateTime.now());
-        errors.put("errors", errorMessages); // This will show specific field errors
-        errors.put("status", HttpStatus.BAD_REQUEST.value());
-
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    public BaseResponseDTO<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage()));
+        return BaseResponseDTO.error("Validation failed: " + errors);
     }
 
-    public ResponseEntity<Map<String, Object>> errorResponse(String message, HttpStatus status) {
-        Map<String, Object> response = new HashMap<>();
-//        response.put("timestamp", LocalDateTime.now());
-        response.put("message", message);
-        response.put("status", status.value());
-
-        return new ResponseEntity<>(response, status);
-    }
+//
+//    public ResponseEntity<Map<String, Object>> errorResponse(String message, HttpStatus status) {
+//        Map<String, Object> response = new HashMap<>();
+////        response.put("timestamp", LocalDateTime.now());
+//        response.put("message", message);
+//        response.put("status", status.value());
+//
+//        return new ResponseEntity<>(response, status);
+//    }
 
     // for checking right role - if user is not allowed to access other role endpoint (authorization)
     // not working for me...
@@ -95,10 +86,10 @@ public class GlobalExceptionClass {
 //        return errorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
 //    }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        return errorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
-    }
+//    @ExceptionHandler(RuntimeException.class)
+//    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+//        return errorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
+//    }
 
 
 }

@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "order_item")
-//@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -21,6 +20,10 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "order_id")
+    private DistributorOrderRequest order;
 
     @ManyToOne @JoinColumn(name = "product_id")
     private Product product;

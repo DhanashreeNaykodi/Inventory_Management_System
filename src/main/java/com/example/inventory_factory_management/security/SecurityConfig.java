@@ -54,11 +54,12 @@ public class SecurityConfig {
 
                         // Specific role-based endpoints
                         .requestMatchers("/manager/**").hasAnyRole("OWNER", "MANAGER")
-                        .requestMatchers("/owner/**").hasAnyRole("OWNER","CENTRAL_OFFICER")
+                        .requestMatchers("/owner/**").hasAnyRole("OWNER","CENTRAL_OFFICER", "MANAGER")
                         .requestMatchers("/product/categories/**").hasRole("OWNER")
                         .requestMatchers("/factories/**").hasRole("OWNER")
-                        .requestMatchers("/tools/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR")
+                        .requestMatchers("/tools/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR", "WORKER")
 
+                        .requestMatchers("/distributor/**").hasRole("DISTRIBUTOR")
                         // Fallback - any other request needs authentication
                         .anyRequest().authenticated()
                 )

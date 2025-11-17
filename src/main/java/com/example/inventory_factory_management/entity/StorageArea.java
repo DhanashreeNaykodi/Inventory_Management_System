@@ -42,7 +42,7 @@ public class StorageArea {
     @Column(name = "location_code", unique = true)
     private String locationCode;
 
-    // Add this method to generate location code
+    // generate location code
     @PrePersist
     @PreUpdate
     public void generateLocationCode() {

@@ -51,9 +51,9 @@ public class ProductRestockRequestService {
 
             // Check if factory has sufficient stock
             Long currentFactoryStock = getCurrentStock(factory, product);
-            if (currentFactoryStock < requestDTO.getQtyRequested()) {
-                return BaseResponseDTO.error("Factory has insufficient stock. Available: " + currentFactoryStock);
-            }
+//            if (currentFactoryStock < requestDTO.getQtyRequested()) {
+//                return BaseResponseDTO.error("Factory has insufficient stock. Available: " + currentFactoryStock);
+//            }
 
             CentralOfficeProductRequest request = new CentralOfficeProductRequest();
             request.setFactory(factory);
@@ -85,53 +85,24 @@ public class ProductRestockRequestService {
                     productId, productName, minQuantity, maxQuantity
             );
 
-            // Apply pagination using PaginationUtil
-            Pageable pageable = PaginationUtil.toPageable(requestDTO);
+//            Pageable pageable = PaginationUtil.toPageable(requestDTO, "id");
+
+            // Create pageable with only page and size (no sorting)
+            int page = requestDTO.getPage() == null ? 0 : requestDTO.getPage();
+            int size = requestDTO.getSize() == null ? 20 : requestDTO.getSize();
+            Pageable pageable = PageRequest.of(page, size);
 
             // Execute query and map to DTO
             Page<CentralOfficeInventoryDTO> resultPage = centralInventoryRepo.findAll(spec, pageable)
                     .map(this::convertToInventoryDTO);
 
             String message = "Central office inventory retrieved successfully";
-            if (productId != null || productName != null || minQuantity != null || maxQuantity != null) {
-                message += " with applied filters";
-            }
-
             return BaseResponseDTO.success(message, resultPage);
-
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to get central office inventory: " + e.getMessage());
         }
     }
 
-
-//    // Chief Officer - Get all restock requests made by co
-//    public BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> getAllRestockRequests(
-//            RequestStatus status, BaseRequestDTO requestDTO) {
-//        try {
-//            User currentUser = securityUtil.getCurrentUser();
-//            if (currentUser.getRole() != Role.CENTRAL_OFFICER) {
-//                return BaseResponseDTO.error("Only central officers can view all requests");
-//            }
-//
-//            Pageable pageable = PaginationUtil.toPageable(requestDTO);
-//            Page<CentralOfficeProductRequest> restockPage = (status != null)
-//                    ? requestRepo.findByStatus(status, pageable)
-//                    : requestRepo.findAll(pageable);
-//
-//            // Direct mapping - no more createCentralOfficePagedResponse
-//            Page<CentralOfficeRestockResponseDTO> resultPage = restockPage.map(this::convertToCentralOfficeDTO);
-//
-//            String message = status != null
-//                    ? status + " restock requests retrieved successfully"
-//                    : "All restock requests retrieved successfully";
-//
-//            return BaseResponseDTO.success(message, resultPage);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Failed to retrieve restock requests: " + e.getMessage());
-//        }
-//    }
 
     // Chief Officer - Get my restock requests to manager
     public BaseResponseDTO<Page<CentralOfficeRestockResponseDTO>> getMyRestockRequests(
@@ -160,9 +131,6 @@ public class ProductRestockRequestService {
             return BaseResponseDTO.error("Failed to retrieve your restock requests: " + e.getMessage());
         }
     }
-
-
-
 
 
 
@@ -226,17 +194,17 @@ public class ProductRestockRequestService {
             // Get current factory stock before deduction
             Long currentFactoryStock = getCurrentStock(request.getFactory(), request.getProduct());
 
-            // DEDUCT from factory inventory (transfer stock out to central office)
+            // Deduct from factory inventory (transfer stock out to central office)
             deductFromFactoryInventory(request.getFactory(), request.getProduct(), request.getQtyRequested());
 
-            // ADD to central office inventory (accumulate total production)
+            // Add to central office inventory
             addToCentralOfficeInventory(request.getProduct(), request.getQtyRequested());
 
             // Update request status to COMPLETED
             request.setStatus(RequestStatus.COMPLETED);
             CentralOfficeProductRequest updatedRequest = requestRepo.save(request);
 
-            // Return factory view (NO central office stock information)
+            // Return factory view
             FactoryRestockResponseDTO responseDTO = convertToFactoryDTO(updatedRequest);
             responseDTO.setCurrentFactoryStock(currentFactoryStock);
             responseDTO.setCompletedAt(LocalDateTime.now());
