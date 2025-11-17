@@ -10,5 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface DistributorInventoryRepository extends JpaRepository<DistributorInventory, Long> {
-    Optional<DistributorInventory> findByDistributorIdAndProduct(Long distributorId, Product product);
+//    Optional<DistributorInventory> findByDistributorIdAndProduct(Long distributorId, Product product);
+    Optional<DistributorInventory> findByDistributorIdAndProductId(Long distributorId, Long productId);
+
 }

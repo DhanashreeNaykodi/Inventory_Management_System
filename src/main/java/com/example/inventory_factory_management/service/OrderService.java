@@ -161,7 +161,7 @@ public class OrderService {
             throw new RuntimeException("Order must be approved before payment");
         }
 
-        updateInventoriesAfterPayment(order);
+        updateInventoriesAfterPayment(orderId);
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
     }
@@ -193,19 +193,27 @@ public class OrderService {
         return true;
     }
 
-    private void updateInventoriesAfterPayment(DistributorOrderRequest order) {
-        for (OrderItem item : order.getOrderItems()) {
+    private void updateInventoriesAfterPayment(Long orderId) {
+        DistributorOrderRequest order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+        List<OrderItem> orderItems = order.getOrderItems();
+        if (orderItems == null || orderItems.isEmpty()) {
+            throw new RuntimeException("Order items not found for order: " + orderId);
+        }
+
+        for (OrderItem item : orderItems) {
             Product product = item.getProduct();
 
             // Deduct from central office
-            CentralOfficeInventory centralInventory = centralInventoryRepository.findByProduct(product)
+            CentralOfficeInventory centralInventory = centralInventoryRepository.findByProductId(product.getId())
                     .orElseThrow(() -> new RuntimeException("Product not found in central inventory: " + product.getId()));
             centralInventory.deductQuantity(item.getQuantity().longValue());
             centralInventoryRepository.save(centralInventory);
 
             // Add to distributor inventory
             DistributorInventory distributorInventory = distributorInventoryRepository
-                    .findByDistributorIdAndProduct(order.getDistributorId(), product)
+                    .findByDistributorIdAndProductId(order.getDistributorId(), product.getId())
                     .orElse(new DistributorInventory());
 
             if (distributorInventory.getId() == null) {
