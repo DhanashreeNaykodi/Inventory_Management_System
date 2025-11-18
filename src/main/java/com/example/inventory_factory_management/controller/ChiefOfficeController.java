@@ -19,12 +19,16 @@ import java.util.List;
 @RequestMapping("/owner")
 public class ChiefOfficeController {
 
+    private CentralOfficeService centralOfficeService;
+    private OrderService orderService;
+    private ProductService productService;
+
     @Autowired
-    CentralOfficeService centralOfficeService;
-    @Autowired
-    OrderService orderService;
-    @Autowired
-    ProductService productService;
+    public ChiefOfficeController(CentralOfficeService centralOfficeService, OrderService orderService, ProductService productService) {
+        this.centralOfficeService = centralOfficeService;
+        this.orderService = orderService;
+        this.productService = productService;
+    }
 
     // Central Office Management Endpoints
     @PostMapping("/central-office")
@@ -65,51 +69,5 @@ public class ChiefOfficeController {
         return ResponseEntity.ok(response);
     }
 
-
-
-    @GetMapping("/filter")
-    public BaseResponseDTO<Page<DistributorOrderRequest>> getOrdersWithFilters(
-            @RequestParam(required = false) OrderStatus status,
-            @RequestParam(required = false) String distributorName,
-            BaseRequestDTO request) {
-        try {
-            OrderFilterDTO filter = new OrderFilterDTO();
-            filter.setStatus(status);
-            filter.setDistributorName(distributorName);
-
-            Page<DistributorOrderRequest> orders = orderService.getOrdersWithFilters(filter, request);
-            return BaseResponseDTO.success("Orders retrieved successfully", orders);
-        } catch (RuntimeException e) {
-            return BaseResponseDTO.error(e.getMessage());
-        }
-    }
-
-    @PostMapping("/{orderId}/process")
-    public BaseResponseDTO<String> processOrder(
-            @PathVariable Long orderId,
-            @RequestBody OrderActionDTO actionRequest) {
-        try {
-            orderService.processOrderAction(orderId, actionRequest);
-
-            String message = "";
-            switch (actionRequest.getStatus()) {
-                case APPROVED:
-                    message = "Order approved successfully";
-                    break;
-                case REJECTED:
-                    message = "Order rejected successfully";
-                    break;
-                case DELIVERED:
-                    message = "Order marked as delivered successfully";
-                    break;
-                default:
-                    message = "Order processed successfully";
-            }
-
-            return BaseResponseDTO.success(message);
-        } catch (RuntimeException e) {
-            return BaseResponseDTO.error(e.getMessage());
-        }
-    }
 
 }

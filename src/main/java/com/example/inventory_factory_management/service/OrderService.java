@@ -207,6 +207,8 @@ public class OrderService {
 
         for (OrderItem item : orderItems) {
             Product product = item.getProduct();
+            Integer quantity = item.getQuantity();
+            Long distributorId = order.getDistributorId();
 
             // Deduct from central office
             CentralOfficeInventory centralInventory = centralInventoryRepository.findByProductId(product.getId())
@@ -214,18 +216,20 @@ public class OrderService {
             centralInventory.deductQuantity(item.getQuantity().longValue());
             centralInventoryRepository.save(centralInventory);
 
-            // Add to distributor inventory
+            // Add to Distributor Inventory
             DistributorInventory distributorInventory = distributorInventoryRepository
-                    .findByDistributorIdAndProductId(order.getDistributorId(), product.getId())
-                    .orElse(new DistributorInventory());
+                    .findByDistributorIdAndProductId(distributorId, product.getId())
+                    .orElseGet(() -> {
+                        // Creating new inventory record if doesn't exist
+                        DistributorInventory newInventory = new DistributorInventory();
+                        newInventory.setDistributorId(distributorId);
+                        newInventory.setProduct(product);
+                        newInventory.setStockQty(0);
+                        return newInventory;
+                    });
 
-            if (distributorInventory.getId() == null) {
-                distributorInventory.setDistributorId(order.getDistributorId());
-                distributorInventory.setProduct(product);
-                distributorInventory.setStockQty(0);
-            }
-
-            distributorInventory.setStockQty(distributorInventory.getStockQty() + item.getQuantity());
+            // Adding the ordered quantity to distributor's stock
+            distributorInventory.setStockQty(distributorInventory.getStockQty() + quantity);
             distributorInventoryRepository.save(distributorInventory);
         }
     }

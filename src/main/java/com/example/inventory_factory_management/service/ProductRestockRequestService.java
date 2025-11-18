@@ -8,6 +8,7 @@ import com.example.inventory_factory_management.repository.*;
 import com.example.inventory_factory_management.specifications.CentralOfficeInventorySpecifications;
 import com.example.inventory_factory_management.utils.PaginationUtil;
 import com.example.inventory_factory_management.utils.SecurityUtil;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -32,6 +33,7 @@ public class ProductRestockRequestService {
     //// CHIEF OFFICER :
 
     // Chief Officer creates restock request
+    @Transactional
     public BaseResponseDTO<CentralOfficeRestockResponseDTO> createRestockRequest(CreateRestockRequestDTO requestDTO) {
         try {
             User currentUser = securityUtil.getCurrentUser();
@@ -135,6 +137,7 @@ public class ProductRestockRequestService {
 
 
     // Factory manager can update stock when they produce more
+    @Transactional
     public BaseResponseDTO<String> updateStockDirectly(UpdateProductStockDTO stockDTO) {
         try {
             User currentUser = securityUtil.getCurrentUser();
@@ -167,6 +170,7 @@ public class ProductRestockRequestService {
     }
 
     // Factory manager completes restock request
+    @Transactional
     public BaseResponseDTO<FactoryRestockResponseDTO> completeRestockRequest(Long requestId) {
         try {
             if (!securityUtil.isManagerOrOwner()) {

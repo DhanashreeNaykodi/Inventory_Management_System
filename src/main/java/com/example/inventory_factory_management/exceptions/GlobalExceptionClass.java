@@ -16,12 +16,24 @@ import java.util.stream.Collectors;
 @ControllerAdvice
 public class GlobalExceptionClass {
 
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public BaseResponseDTO<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<BaseResponseDTO<?>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        // Create proper error response instead of returning view name
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
-        return BaseResponseDTO.error("Validation failed: " + errors);
+                errors.put(error.getField(), error.getDefaultMessage())
+        );
+
+        return ResponseEntity.badRequest()
+                .body(BaseResponseDTO.error("Validation failed: " + errors));
+    }
+
+    // Add this to handle other exceptions too
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<BaseResponseDTO<?>> handleAllExceptions(Exception ex) {
+        return ResponseEntity.badRequest()
+                .body(BaseResponseDTO.error("Error: " + ex.getMessage()));
     }
 
 //
