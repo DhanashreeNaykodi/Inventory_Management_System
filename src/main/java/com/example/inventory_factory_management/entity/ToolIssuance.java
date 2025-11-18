@@ -22,9 +22,6 @@ public class ToolIssuance {
     @JoinColumn(name = "tool_request_id")
     private ToolRequest request;
 
-    //in lavanya's code
-//    @ManyToOne @JoinColumn(name = "tool_id")
-//    private Tool tool;
 
     @Enumerated(EnumType.STRING)
     private ToolIssuanceStatus status = ToolIssuanceStatus.ISSUED;

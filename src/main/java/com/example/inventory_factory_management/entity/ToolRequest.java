@@ -44,7 +44,6 @@ public class ToolRequest {
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // Add these fields to your existing WorkerToolRequest entity:
     private LocalDateTime issuedAt;
     private LocalDateTime returnedAt;
 //    private LocalDateTime autoReturnDate;

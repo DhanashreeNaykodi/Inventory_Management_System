@@ -14,6 +14,7 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 //@Transactional
@@ -53,9 +54,6 @@ public class ProductRestockRequestService {
 
             // Check if factory has sufficient stock
             Long currentFactoryStock = getCurrentStock(factory, product);
-//            if (currentFactoryStock < requestDTO.getQtyRequested()) {
-//                return BaseResponseDTO.error("Factory has insufficient stock. Available: " + currentFactoryStock);
-//            }
 
             CentralOfficeProductRequest request = new CentralOfficeProductRequest();
             request.setFactory(factory);
@@ -371,13 +369,11 @@ public class ProductRestockRequestService {
     private CentralOfficeInventoryDTO convertToInventoryDTO(CentralOfficeInventory inventory) {
         CentralOfficeInventoryDTO dto = new CentralOfficeInventoryDTO();
 
-        if (inventory.getProduct() != null) {
-            dto.setProductId(inventory.getProduct().getId());
-            dto.setProductName(inventory.getProduct().getName());
-        } else {
-            dto.setProductId(null);
-//            dto.setProductName("Unknown Product");
-        }
+        Optional.ofNullable(inventory.getProduct())
+                .ifPresent(product -> {
+                    dto.setProductId(product.getId());
+                    dto.setProductName(product.getName());
+                });
 
         dto.setQuantity(inventory.getQuantity());
         dto.setTotalReceived(inventory.getTotalReceived());
