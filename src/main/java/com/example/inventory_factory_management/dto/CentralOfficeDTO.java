@@ -10,6 +10,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CentralOfficeDTO {
+
     private String location;
     private String centralOfficerHeadEmail;
     private String centralOfficerHeadName;

@@ -128,4 +128,24 @@ public class SecurityUtil {
             System.err.println("Failed to send welcome email: " + e.getMessage());
         }
     }
+
+    private void sendWelcomeEmail2(User centralOfficer, String password) {
+        try {
+            String subject = "Welcome Central Officer - Inventory Management System";
+            String message = "Dear " + centralOfficer.getUsername() + ",\n\n" +
+                    "Welcome to the Inventory Factory Management System as a Central Officer!\n\n" +
+                    "Your account has been created successfully.\n\n" +
+                    "Your Login Credentials:\n" +
+                    "Email: " + centralOfficer.getEmail() + "\n" +
+                    "Password: " + password + "\n\n" +
+                    "Please login and change your password immediately.\n\n" +
+                    "Login URL: http://localhost:8080/auth/login\n\n" +
+                    "Best regards,\n" +
+                    "Inventory Factory Management Team";
+
+            emailService.sendEmail(centralOfficer.getEmail(), subject, message);
+        } catch (Exception e) {
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+        }
+    }
 }

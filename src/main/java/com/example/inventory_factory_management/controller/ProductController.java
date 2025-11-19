@@ -2,15 +2,20 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.ProductService;
+import com.example.inventory_factory_management.utils.PaginationUtil;
+import com.example.inventory_factory_management.validations.ValidImage;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -19,6 +24,15 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
+
+    // Category-wise product counts with pagination
+    @PostMapping("/category-products")
+    public ResponseEntity<BaseResponseDTO<Page<CategoryProductCountDTO>>> getCategoryWiseProductCounts(
+            @RequestBody BaseRequestDTO request) {
+        BaseResponseDTO<Page<CategoryProductCountDTO>> response = productService.getCategoryWiseProductCounts(request);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping("/createProduct")
     public ResponseEntity<BaseResponseDTO<ProductDTO>> createProduct(@Valid @RequestBody ProductDTO productDTO) {
@@ -37,7 +51,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CENTRAL_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/{id}/detail")
     public ResponseEntity<BaseResponseDTO<ProductDTO>> getProductDetail(@PathVariable Long id) {
         BaseResponseDTO<ProductDTO> response = productService.getProductDetail(id);
@@ -46,7 +60,6 @@ public class ProductController {
 
     @PostMapping("/{id}/deactivate")
     public ResponseEntity<BaseResponseDTO<ProductDTO>> deactivateProduct(@PathVariable Long id) {
-        // This method remains in your service
         BaseResponseDTO<ProductDTO> response = productService.deactivateProduct(id);
         return ResponseEntity.ok(response);
     }
@@ -65,8 +78,8 @@ public class ProductController {
     }
 
 
-    // UPDATED: Get all products with filtering
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER','CHIEF_OFFICER', 'DISTRIBUTOR')")
+
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER','CENTRAL_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getAllProducts(
             @Valid @ModelAttribute BaseRequestDTO request,
@@ -78,8 +91,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    // NEW: Search products by name
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CENTRAL_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products/search")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> searchProducts(
             @RequestParam String search,
@@ -89,8 +101,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    // NEW: Get products by category
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_OFFICER', 'DISTRIBUTOR')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CENTRAL_OFFICER', 'DISTRIBUTOR')")
     @GetMapping("/products/category/{categoryId}")
     public ResponseEntity<BaseResponseDTO<Page<ProductDTO>>> getProductsByCategory(
             @PathVariable Long categoryId,

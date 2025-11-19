@@ -42,7 +42,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // Public endpoints
-                        .requestMatchers("/auth/login", "/auth/signup").permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/signup",
+                                "/auth/logout",
+                                "/error"
+                        ).permitAll()
 
                         // User endpoints - accessible to all authenticated users
                         .requestMatchers("/user/profile").authenticated()
@@ -59,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/factories/**").hasRole("OWNER")
                         .requestMatchers("/tools/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR", "WORKER")
 
-                        .requestMatchers("/distributor/**").hasAnyRole("DISTRIBUTOR", "CHIEF_OFFICER")
+                        .requestMatchers("/distributor/**").hasAnyRole("DISTRIBUTOR", "CENTRAL_OFFICER")
                         // Fallback - any other request needs authentication
                         .anyRequest().authenticated()
                 )

@@ -47,6 +47,7 @@ public class JwtFilter extends OncePerRequestFilter {
         // Skip JWT validation for public endpoints
         if (requestPath.equals("/auth/signup") ||
                 requestPath.equals("/auth/login") ||
+                requestPath.equals("/auth/logout") ||
                 requestPath.equals("/index/")) {
             filterChain.doFilter(request, response);
             return;
@@ -63,7 +64,7 @@ public class JwtFilter extends OncePerRequestFilter {
             // Check if token is blacklisted
             if (tokenBlacklistService.isTokenBlacklisted(token)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\": \"Token has been invalidated\"}");
+                response.getWriter().write("{\"error\": \"Token has been invalidated, login again\"}");
                 return;
             }
 

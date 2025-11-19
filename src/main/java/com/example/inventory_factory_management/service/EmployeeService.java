@@ -69,6 +69,7 @@ public class EmployeeService {
                 return BaseResponseDTO.error("Bay name is required");
             }
 
+            //existsByNameIgnoreCase
             boolean bayExists = bayRepository.existsByNameAndFactoryFactoryId(bayDTO.getName(), factoryId);
             if (bayExists) {
                 return BaseResponseDTO.error("Bay with name '" + bayDTO.getName() + "' already exists in this factory");

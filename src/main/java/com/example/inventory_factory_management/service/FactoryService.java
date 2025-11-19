@@ -56,7 +56,6 @@ public class FactoryService {
 
     public BaseResponseDTO<Page<FactoryDTO>> getAllFactories(BaseRequestDTO request) {
         try {
-            // Create pageable with sorting
 //            Pageable pageable = createPageable(request);
             Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findAll(pageable);
@@ -190,7 +189,7 @@ public class FactoryService {
             }
 
             if (factoryDTO.getPlantHead() == null && factoryDTO.getPlantHeadId() == null) {
-                return BaseResponseDTO.error("Plant head details are required"); // Updated error message
+                return BaseResponseDTO.error("Plant head details are required");
             }
 
             if (factoryRepository.existsByName(factoryDTO.getName())) {
@@ -199,10 +198,9 @@ public class FactoryService {
 
             User plantHead;
             String generatedPassword = null;
-            boolean isNewManager = false; // Track if this is a new manager
+            boolean isNewManager = false;
 
             if (factoryDTO.getPlantHeadId() != null) {
-                // Use existing plant head
                 plantHead = userRepository.findById(factoryDTO.getPlantHeadId())
                         .orElseThrow(() -> new RuntimeException("Plant head not found with id: " + factoryDTO.getPlantHeadId()));
 
@@ -217,9 +215,7 @@ public class FactoryService {
                     return BaseResponseDTO.error("Manager is already assigned to another factory and cannot be reassigned");
                 }
             } else {
-                // Create new plant head from plantHead object
                 UserDTO plantHeadDetails = factoryDTO.getPlantHead();
-
                 if (userRepository.findByEmail(plantHeadDetails.getEmail()).isPresent()) {
                     return BaseResponseDTO.error("User with email '" + plantHeadDetails.getEmail() + "' already exists");
                 }
@@ -235,7 +231,7 @@ public class FactoryService {
                 generatedPassword = plantHead.getUsername().substring(0, 3) + "@" + plantHead.getPhone().toString().substring(0,7);
                 plantHead.setPassword(passwordEncoder.encode(generatedPassword));
                 plantHead = userRepository.save(plantHead);
-                isNewManager = true; // This is a new manager
+                isNewManager = true; //new
             }
 
             // Create factory entity
@@ -273,10 +269,7 @@ public class FactoryService {
         }
     }
 
-    /**
-     * ADD THIS METHOD TO YOUR factoryService CLASS
-     * Simple email sending for manager notification
-     */
+
     private void sendManagerEmail(User manager, String factoryName, String password, boolean isNewManager) {
         try {
             String subject = "Factory Manager Assignment - Inventory System";
@@ -311,7 +304,6 @@ public class FactoryService {
             emailService.sendEmail(manager.getEmail(), subject, message);
 
         } catch (Exception e) {
-            // Log email error but don't fail the factory creation
             System.err.println("Failed to send email to manager: " + e.getMessage());
         }
     }
@@ -407,8 +399,6 @@ public class FactoryService {
             newRelation.setUserRole(Role.MANAGER);
             newRelation.setStatus(AccountStatus.ACTIVE);
 
-            UserFactory savedRelation = userFactoryRepository.save(newRelation);
-
             sendManagerEmail(newManager, updatedFactory.getName(), generatedPassword, isNewManager);
 
             return BaseResponseDTO.success("Factory manager updated successfully", convertToDTO(updatedFactory));
@@ -422,7 +412,6 @@ public class FactoryService {
             Factory factory1 = factoryRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Factory doesn't exist"));
 
-            // Use the alternative method
             List<User> users = userRepository.findUsersByFactoryId(id);
 
             if (!users.isEmpty()) {
@@ -432,7 +421,6 @@ public class FactoryService {
                 userRepository.saveAll(users);
             }
 
-            // Use findByFactoryId instead of findByFactory
             List<UserFactory> userFactories = userFactoryRepository.findByFactoryId(id);
             if (!userFactories.isEmpty()) {
                 userFactories.forEach(uf -> uf.setStatus(AccountStatus.INACTIVE));
@@ -449,51 +437,6 @@ public class FactoryService {
         }
     }
 
-    public BaseResponseDTO<String> toggleFactoryStatus(String factoryName) {
-        try {
-            // FIXED: Use the corrected repository method
-            List<Factory> factories = factoryRepository.findByNameContainingIgnoreCase(factoryName);
-
-            if (factories.isEmpty()) {
-                return BaseResponseDTO.error("Factory '" + factoryName + "' doesn't exist");
-            }
-
-            // If multiple factories found with similar names, take the first one
-            Factory factory1 = factories.get(0);
-
-            // Toggle the factory status
-            AccountStatus newStatus = (factory1.getStatus() == AccountStatus.ACTIVE)
-                    ? AccountStatus.INACTIVE
-                    : AccountStatus.ACTIVE;
-
-            factory1.setStatus(newStatus);
-            factoryRepository.save(factory1);
-
-            // If deactivating factory, also deactivate associated users and userFactories
-            if (newStatus == AccountStatus.INACTIVE) {
-                // Deactivate WORKER and CHIEF_SUPERVISOR users
-                List<User> users = userRepository.findUsersByFactoryId(factory1.getFactoryId());
-                if (!users.isEmpty()) {
-                    users.stream()
-                            .filter(u -> u.getRole() == Role.WORKER || u.getRole() == Role.CHIEF_SUPERVISOR)
-                            .forEach(u -> u.setStatus(AccountStatus.INACTIVE));
-                    userRepository.saveAll(users);
-                }
-
-                // Deactivate userFactory relationships
-                List<UserFactory> userFactories = userFactoryRepository.findByFactoryId(factory1.getFactoryId());
-                if (!userFactories.isEmpty()) {
-                    userFactories.forEach(uf -> uf.setStatus(AccountStatus.INACTIVE));
-                    userFactoryRepository.saveAll(userFactories);
-                }
-            }
-
-            String action = (newStatus == AccountStatus.ACTIVE) ? "activated" : "deactivated";
-            return BaseResponseDTO.success("Factory '" + factoryName + "' " + action + " successfully");
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to toggle factory status: " + e.getMessage());
-        }
-    }
 
     public BaseResponseDTO<String> toggleFactoryStatus(Long id) {
         try {
@@ -525,9 +468,6 @@ public class FactoryService {
                     userFactories.forEach(uf -> uf.setStatus(AccountStatus.INACTIVE));
                     userFactoryRepository.saveAll(userFactories);
                 }
-            } else {
-                // If activating factory, you can choose to activate associated entities too
-                // Optional: Add logic here to reactivate users/userFactories if needed
             }
 
             String action = (newStatus == AccountStatus.ACTIVE) ? "activated" : "deactivated";
@@ -593,8 +533,7 @@ public class FactoryService {
 
         // Set factory information if available
         if (user.getUserFactories() != null && !user.getUserFactories().isEmpty()) {
-            // Get the first factory relationship (assuming one manager per factory)
-            // get all factories of manager MISSING!!
+
             UserFactory userFactoryRel = user.getUserFactories().get(0);
             if (userFactoryRel.getFactory() != null) {
                 dto.setFactoryId(userFactoryRel.getFactory().getFactoryId());
@@ -606,6 +545,49 @@ public class FactoryService {
         return dto;
     }
 
+
+    public BaseResponseDTO<String> toggleFactoryStatus(String factoryName) {
+        try {
+            List<Factory> factories = factoryRepository.findByNameContainingIgnoreCase(factoryName);
+
+            if (factories.isEmpty()) {
+                return BaseResponseDTO.error("Factory '" + factoryName + "' doesn't exist");
+            }
+
+            Factory factory1 = factories.get(0);
+
+            // Toggle the factory status
+            AccountStatus newStatus = (factory1.getStatus() == AccountStatus.ACTIVE)
+                    ? AccountStatus.INACTIVE
+                    : AccountStatus.ACTIVE;
+
+            factory1.setStatus(newStatus);
+            factoryRepository.save(factory1);
+
+            // If deactivating factory, also deactivate associated users and userFactories
+            if (newStatus == AccountStatus.INACTIVE) {
+                // Deactivate WORKER and CHIEF_SUPERVISOR users
+                List<User> users = userRepository.findUsersByFactoryId(factory1.getFactoryId());
+                if (!users.isEmpty()) {
+                    users.stream()
+                            .filter(u -> u.getRole() == Role.WORKER || u.getRole() == Role.CHIEF_SUPERVISOR)
+                            .forEach(u -> u.setStatus(AccountStatus.INACTIVE));
+                    userRepository.saveAll(users);
+                }
+
+                // Deactivate userFactory relationships
+                List<UserFactory> userFactories = userFactoryRepository.findByFactoryId(factory1.getFactoryId());
+                if (!userFactories.isEmpty()) {
+                    userFactories.forEach(uf -> uf.setStatus(AccountStatus.INACTIVE));
+                    userFactoryRepository.saveAll(userFactories);
+                }
+            }
+            String action = (newStatus == AccountStatus.ACTIVE) ? "activated" : "deactivated";
+            return BaseResponseDTO.success("Factory '" + factoryName + "' " + action + " successfully");
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to toggle factory status: " + e.getMessage());
+        }
+    }
     // Helper method to create Pageable with sorting
 //    private Pageable createPageable(BaseRequestDTO request) {
 //        Sort sort = createSort(request.getSortBy(), request.getSortDirection());

@@ -126,9 +126,9 @@ public class OrderService {
                 if (order.getStatus() != OrderStatus.PENDING) {
                     throw new RuntimeException("Only pending orders can be rejected");
                 }
-                if (actionRequest.getRejectReason() == null || actionRequest.getRejectReason().trim().isEmpty()) {
-                    throw new RuntimeException("Reject reason is required");
-                }
+//                if (actionRequest.getRejectReason() == null || actionRequest.getRejectReason().trim().isEmpty()) {
+//                    throw new RuntimeException("Reject reason is required");
+//                }
                 order.setStatus(OrderStatus.REJECTED);
                 order.setRejectReason(actionRequest.getRejectReason().trim());
                 break;
@@ -145,6 +145,7 @@ public class OrderService {
         }
 
         orderRepository.save(order);
+
     }
 
 

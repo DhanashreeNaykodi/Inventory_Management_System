@@ -2,6 +2,7 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.EmployeeService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,13 +19,13 @@ public class EmployeeController {
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/createBay")
-    public BaseResponseDTO<BayDTO> createBay(@RequestBody CreateBayDTO bayDTO) {
+    public BaseResponseDTO<BayDTO> createBay(@Valid @RequestBody CreateBayDTO bayDTO) {
         return employeeService.createBay(bayDTO);
     }
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/createEmployee")
-    public BaseResponseDTO<UserDTO> createEmployee(@RequestBody CreateEmployeeDTO employeeDTO) {
+    public BaseResponseDTO<UserDTO> createEmployee(@Valid @RequestBody CreateEmployeeDTO employeeDTO) {
         return employeeService.createEmployee(employeeDTO);
     }
 
@@ -87,7 +88,7 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     @PutMapping("/employees/{employeeId}")
     public BaseResponseDTO<UserDTO> updateEmployee(@PathVariable Long employeeId,
-                                                   @RequestBody CreateEmployeeDTO employeeDTO) {
+                                                   @Valid @RequestBody CreateEmployeeDTO employeeDTO) {
         return employeeService.updateEmployee(employeeId, employeeDTO);
     }
 

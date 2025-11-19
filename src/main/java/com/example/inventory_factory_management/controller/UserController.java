@@ -4,6 +4,7 @@ import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.CentralOfficeService;
 import com.example.inventory_factory_management.service.AuthService;
 import com.example.inventory_factory_management.service.UserService;
+import com.example.inventory_factory_management.validations.ValidImage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -45,17 +46,21 @@ public class UserController {
     @PutMapping(value = "/{userId}/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponseDTO<UserDTO>> updateProfile(
             @PathVariable Long userId,
-            @RequestParam("username") String username,
-            @RequestParam("email") String email,
-            @RequestParam("phone") String phone,
+            @RequestParam(value = "username", required = false) String username,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "phone", required = false) String phone,
             @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
 
-        // Create UserUpdateDTO
         UserUpdateDTO userDTO = new UserUpdateDTO();
-        userDTO.setUsername(username);
-        userDTO.setEmail(email);
-        userDTO.setPhone(phone);
-
+        if (username != null && !username.trim().isEmpty()) {
+            userDTO.setUsername(username.trim());
+        }
+        if (email != null && !email.trim().isEmpty()) {
+            userDTO.setEmail(email.trim());
+        }
+        if (phone != null && !phone.trim().isEmpty()) {
+            userDTO.setPhone(phone.trim());
+        }
         BaseResponseDTO<UserDTO> response = userService.updateProfile(userId, userDTO, profileImage);
         return ResponseEntity.ok(response);
     }

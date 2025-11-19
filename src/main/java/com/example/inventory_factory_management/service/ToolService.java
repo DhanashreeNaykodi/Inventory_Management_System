@@ -51,7 +51,6 @@ public class ToolService {
 
     public BaseResponseDTO<ToolResponseDTO> createTool(CreateToolDTO createToolDTO) {
         try {
-            // Check if tool name already exists
             if (toolRepository.existsByNameIgnoreCase(createToolDTO.getName())) {
                 return BaseResponseDTO.error("Tool with this name already exists");
             }
@@ -69,12 +68,22 @@ public class ToolService {
             tool.setIsExpensive(createToolDTO.getIsExpensive());
             tool.setThreshold(createToolDTO.getThreshold());
 
-            // Handle image upload
-            String imageUrl = cloudinaryService.uploadFile(createToolDTO.getImage());
-            tool.setImageUrl(imageUrl);
+
+
+            if (createToolDTO.getImage() != null && !createToolDTO.getImage().isEmpty()) {
+                try {
+                    String imageUrl = cloudinaryService.uploadFile(createToolDTO.getImage());
+                    tool.setImageUrl(imageUrl);
+                } catch (Exception e) {
+                    tool.setImageUrl("src/main/resources/static/images/user-profile-icon.jpg");
+                }
+            } else {
+                tool.setImageUrl("src/main/resources/static/images/user-profile-icon.jpg");
+            }
+
+
             tool.setUpdatedAt(LocalDateTime.now());
             tool.setStatus(AccountStatus.ACTIVE);
-
             Tool savedTool = toolRepository.save(tool);
 
             return BaseResponseDTO.success("Tool created successfully", convertToDTO(savedTool));
@@ -93,10 +102,11 @@ public class ToolService {
             String search) {
 
         try {
-            // Build specification with filters
-            Specification<Tool> spec = ToolSpecifications.withFilters(
-                    categoryId, status, type, isExpensive, search
-            );
+            if (request == null) {
+                request = new BaseRequestDTO(); // Default request
+            }
+
+            Specification<Tool> spec = ToolSpecifications.withFilters(categoryId, status, type, isExpensive, search);
 
             // Apply pagination and sorting
             Pageable pageable = PaginationUtil.toPageable(request);
@@ -135,6 +145,8 @@ public class ToolService {
                 return BaseResponseDTO.error("Tool with this name already exists");
             }
 
+//
+
             // Update category if changed
             if (!tool.getCategory().getId().equals(updateToolDTO.getCategoryId())) {
                 ToolCategory category = toolCategoryRepository.findById(updateToolDTO.getCategoryId())
@@ -142,20 +154,17 @@ public class ToolService {
                 tool.setCategory(category);
             }
 
-            // Handle image update
             if (updateToolDTO.getImage() != null && !updateToolDTO.getImage().isEmpty()) {
-                // Handle image upload
                 String imageUrl = cloudinaryService.uploadFile(updateToolDTO.getImage());
 
-                // Update tool with new image URL
                 tool.setImageUrl(imageUrl);
             }
 
-            // Update other fields
             tool.setName(updateToolDTO.getName());
             tool.setType(updateToolDTO.getType());
             tool.setIsExpensive(updateToolDTO.getIsExpensive());
             tool.setThreshold(updateToolDTO.getThreshold());
+
             tool.setUpdatedAt(LocalDateTime.now());
             Tool updatedTool = toolRepository.save(tool);
 
@@ -199,8 +208,9 @@ public class ToolService {
 
 //    MANAGERS - ADDING TOOLS INTO STOCK
 
+//    @Transactional
     public BaseResponseDTO<String> addToolsToFactoryStock(AssignToolToFactoryDTO requestDTO) {
-//        try {
+        try {
             User currentUser = securityUtils.getCurrentUser();
 
             if (!currentUser.getRole().name().equals("MANAGER")) {
@@ -230,7 +240,6 @@ public class ToolService {
                     throw new RuntimeException("Quantity must be positive for tool ID: " + toolId);
                 }
 
-                // AUTO-PREPEND FACTORY PREFIX: Convert "R1C1S1B1" to "F3_R1C1S1B1"
                 String fullLocationCode = "F" + factory.getFactoryId() + "_" + storageLocation;
 
                 // Validate storage location exists with the full code
@@ -250,19 +259,64 @@ public class ToolService {
                 Integer quantity = requestDTO.getQuantities().get(i);
                 String storageLocation = requestDTO.getStorage_locations().get(i);
 
-                // Fetch tool entity
                 Tool tool = toolRepository.findById(toolId)
                         .orElseThrow(() -> new RuntimeException("Tool not found with ID: " + toolId));
 
-                // AUTO-PREPEND FACTORY PREFIX again for the actual operation
                 String fullLocationCode = "F" + factory.getFactoryId() + "_" + storageLocation;
                 StorageArea storageArea = storageAreaRepository.findByLocationCode(fullLocationCode)
                         .orElseThrow(() -> new RuntimeException("Storage location not found: " + storageLocation));
 
                 // Add to factory stock
-                addToolToFactoryStock(tool, factory, quantity);
+//                addToolToFactoryStock(tool, factory, quantity);
+                Optional<ToolStock> existingStock = toolStockRepository.findByToolIdAndFactoryFactoryId(tool.getId(), factory.getFactoryId());
+                if (existingStock.isPresent()) {
+                    ToolStock stock = existingStock.get();
+                    stock.setTotalQuantity(stock.getTotalQuantity() + quantity);
+                    stock.setAvailableQuantity(stock.getAvailableQuantity() + quantity);
+                    stock.setUpdatedAt(LocalDateTime.now());
+                    toolStockRepository.save(stock);
+                    System.out.println("Updated existing stock for tool: " + tool.getName() + ", new quantity: " + stock.getTotalQuantity());
+                } else {
+                    ToolStock newStock = new ToolStock();
+                    newStock.setFactory(factory);
+                    newStock.setTool(tool);
+                    newStock.setTotalQuantity(quantity.longValue());
+                    newStock.setAvailableQuantity(quantity.longValue());
+                    newStock.setCreatedAt(LocalDateTime.now());
+                    newStock.setUpdatedAt(LocalDateTime.now());
+                    toolStockRepository.save(newStock);
+                    System.out.println("Created new stock for tool: " + tool.getName() + ", quantity: " + quantity);
+                }
+
+
                 // Create storage mapping
-                addToolToStorageLocation(tool, factory, storageArea, quantity);
+//                addToolToStorageLocation(tool, factory, storageArea, quantity);
+                // Check if tool already exists in this storage location
+                Optional<ToolStorageMapping> existingMapping = toolStorageMappingRepository
+                        .findByFactoryFactoryIdAndToolIdAndStorageAreaLocationCode(
+                                factory.getFactoryId(), tool.getId(), storageArea.getLocationCode());
+
+                if (existingMapping.isPresent()) {
+                    // Update existing mapping quantity
+                    ToolStorageMapping mapping = existingMapping.get();
+                    mapping.setQuantity(mapping.getQuantity() + quantity);
+                    toolStorageMappingRepository.save(mapping);
+                    System.out.println("Updated storage mapping for tool: " + tool.getName() +
+                            " in location: " + storageArea.getLocationCode() +
+                            ", new quantity: " + mapping.getQuantity());
+                } else {
+                    // Create new storage mapping
+                    ToolStorageMapping newMapping = new ToolStorageMapping();
+                    newMapping.setFactory(factory);
+                    newMapping.setTool(tool);
+                    newMapping.setStorageArea(storageArea);
+                    newMapping.setQuantity(quantity);
+                    newMapping.setCreatedAt(LocalDateTime.now());
+                    toolStorageMappingRepository.save(newMapping);
+                    System.out.println("Created new storage mapping for tool: " + tool.getName() +
+                            " in location: " + storageArea.getLocationCode() +
+                            ", quantity: " + quantity);
+                }
             }
 
             return BaseResponseDTO.success(
@@ -270,62 +324,13 @@ public class ToolService {
                     "Added " + requestDTO.getTool_ids().size() + " tool(s) to factory stock with storage locations"
             );
 
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error adding tools to factory stock: " + e.getMessage());
-//        }
-    }
-
-    private void addToolToStorageLocation(Tool tool, Factory factory, StorageArea storageArea, Integer quantity) {
-        // Check if tool already exists in this storage location
-        Optional<ToolStorageMapping> existingMapping = toolStorageMappingRepository
-                .findByFactoryFactoryIdAndToolIdAndStorageAreaLocationCode(
-                        factory.getFactoryId(), tool.getId(), storageArea.getLocationCode());
-
-        if (existingMapping.isPresent()) {
-            // Update existing mapping quantity
-            ToolStorageMapping mapping = existingMapping.get();
-            mapping.setQuantity(mapping.getQuantity() + quantity);
-            toolStorageMappingRepository.save(mapping);
-            System.out.println("Updated storage mapping for tool: " + tool.getName() +
-                    " in location: " + storageArea.getLocationCode() +
-                    ", new quantity: " + mapping.getQuantity());
-        } else {
-            // Create new storage mapping
-            ToolStorageMapping newMapping = new ToolStorageMapping();
-            newMapping.setFactory(factory);
-            newMapping.setTool(tool);
-            newMapping.setStorageArea(storageArea);
-            newMapping.setQuantity(quantity);
-            newMapping.setCreatedAt(LocalDateTime.now());
-            toolStorageMappingRepository.save(newMapping);
-            System.out.println("Created new storage mapping for tool: " + tool.getName() +
-                    " in location: " + storageArea.getLocationCode() +
-                    ", quantity: " + quantity);
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error adding tools to factory stock: " + e.getMessage());
         }
     }
 
-    private void addToolToFactoryStock(Tool tool, Factory factory, Integer quantity) {
-        Optional<ToolStock> existingStock = toolStockRepository.findByToolIdAndFactoryFactoryId(tool.getId(), factory.getFactoryId());
 
-        if (existingStock.isPresent()) {
-            ToolStock stock = existingStock.get();
-            stock.setTotalQuantity(stock.getTotalQuantity() + quantity);
-            stock.setAvailableQuantity(stock.getAvailableQuantity() + quantity);
-            stock.setUpdatedAt(LocalDateTime.now());
-            toolStockRepository.save(stock);
-            System.out.println("Updated existing stock for tool: " + tool.getName() + ", new quantity: " + stock.getTotalQuantity());
-        } else {
-            ToolStock newStock = new ToolStock();
-            newStock.setFactory(factory);
-            newStock.setTool(tool);
-            newStock.setTotalQuantity(quantity.longValue());
-            newStock.setAvailableQuantity(quantity.longValue());
-            newStock.setCreatedAt(LocalDateTime.now());
-            newStock.setUpdatedAt(LocalDateTime.now());
-            toolStockRepository.save(newStock);
-            System.out.println("Created new stock for tool: " + tool.getName() + ", quantity: " + quantity);
-        }
-    }
+
 
     public BaseResponseDTO<Page<ToolStockResponseDTO>> getMyFactoryTools(BaseRequestDTO request) {
         try {
@@ -368,7 +373,6 @@ public class ToolService {
             ToolStock toolStock = toolStockRepository.findByToolIdAndFactoryFactoryId(toolId, factory.getFactoryId())
                     .orElseThrow(() -> new RuntimeException("Tool not found in factory stock"));
 
-            // Build the DTO
             ToolStorageDetailDTO dto = new ToolStorageDetailDTO();
             dto.setToolId(toolStock.getTool().getId());
             dto.setToolName(toolStock.getTool().getName());
@@ -378,7 +382,6 @@ public class ToolService {
             dto.setTotalQuantityInFactory(toolStock.getTotalQuantity());
             dto.setAvailableQuantity(toolStock.getAvailableQuantity());
 
-            // Get storage locations
             List<ToolStorageMapping> storageMappings = toolStorageMappingRepository
                     .findByToolIdAndFactoryFactoryId(toolId, factory.getFactoryId());
 
@@ -420,17 +423,14 @@ public class ToolService {
             // Simple pagination without any sorting
             Pageable pageable = PageRequest.of(
                     request.getPage() != null ? request.getPage() : 0,
-                    request.getSize() != null ? request.getSize() : 100
-                    // No Sort.by() - completely removes sorting
+                    request.getSize() != null ? request.getSize() : 70
             );
 
             Page<StorageArea> storageAreaPage = storageAreaRepository.findByFactoryFactoryId(
                     factory.getFactoryId(), pageable);
 
-//          REMOVE FACTORY PREFIX for clean response
             Page<String> locationCodesPage = storageAreaPage.map(storageArea -> {
                 String fullCode = storageArea.getLocationCode();
-                // Remove "F3_" prefix to return clean "R1C1S1B1"
                 return fullCode.replace("F" + factory.getFactoryId() + "_", "");
             });
 
@@ -440,7 +440,6 @@ public class ToolService {
         }
     }
 
-    // Alternative: If you want all location codes without pagination (for dropdown)
 //    public BaseResponseDTO<List<String>> getAllStorageLocationCodes() {
 //        try {
 //            User currentUser = securityUtils.getCurrentUser();

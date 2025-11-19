@@ -2,6 +2,7 @@ package com.example.inventory_factory_management.dto;
 
 import com.example.inventory_factory_management.constants.Expensive;
 import com.example.inventory_factory_management.constants.ToolType;
+import com.example.inventory_factory_management.validations.ValidImage;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -43,11 +44,13 @@ public class AddNewToolDTO {
 
     @Min(value = 0, message = "Quantity cannot be negative")
     @Max(value = 10000, message = "Quantity cannot exceed 10000")
+    @Positive(message = "Qty must be positive")
     private Integer quantity;
 
     @Positive(message = "Storage area ID must be positive")
     private Long storageAreaId;
 
+//    @ValidImage
     @NotNull(message = "Tool image is required")
     private MultipartFile image;
 }

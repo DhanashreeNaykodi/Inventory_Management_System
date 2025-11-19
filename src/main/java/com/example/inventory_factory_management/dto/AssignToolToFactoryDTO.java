@@ -23,6 +23,13 @@ public class AssignToolToFactoryDTO {
     @NotEmpty(message = "Storage locations list cannot be empty")
     private List<String> storage_locations; // List of location codes like ["R1C1S1B1", "R1C1S1B2"]
 
+
+
+
+
+
+
+
     @AssertTrue(message = "Tool IDs, Quantities and Storage Locations lists must have the same size")
     private boolean isSizesEqual() {
         return tool_ids != null &&

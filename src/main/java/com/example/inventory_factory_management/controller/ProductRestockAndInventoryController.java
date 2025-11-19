@@ -3,10 +3,17 @@ package com.example.inventory_factory_management.controller;
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.RequestStatus;
 import com.example.inventory_factory_management.service.ProductRestockRequestService;
+import com.example.inventory_factory_management.utils.PaginationUtil;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/inventory")
@@ -14,6 +21,7 @@ public class ProductRestockAndInventoryController {
 
     @Autowired
     private ProductRestockRequestService productRestockRequestService;
+
 
 
     @GetMapping("/central-office")
@@ -33,7 +41,7 @@ public class ProductRestockAndInventoryController {
     @PreAuthorize("hasRole('CENTRAL_OFFICER')")
     @PostMapping("/central-office/restock-requests")
     public BaseResponseDTO<CentralOfficeRestockResponseDTO> createRestockRequest(
-            @RequestBody CreateRestockRequestDTO requestDTO) {
+             @Valid @RequestBody CreateRestockRequestDTO requestDTO) {
         return productRestockRequestService.createRestockRequest(requestDTO);
     }
 
@@ -49,7 +57,7 @@ public class ProductRestockAndInventoryController {
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/factories/stock/production")
     public BaseResponseDTO<String> updateStockDirectly(
-            @RequestBody UpdateProductStockDTO stockDTO) {
+             @Valid @RequestBody UpdateProductStockDTO stockDTO) {
         return productRestockRequestService.updateStockDirectly(stockDTO);
     }
 
@@ -69,5 +77,18 @@ public class ProductRestockAndInventoryController {
             @RequestParam(required = false) RequestStatus status,
             @ModelAttribute BaseRequestDTO requestDTO) {
         return productRestockRequestService.getMyFactoryRestockRequests(status, requestDTO);
+    }
+
+
+
+
+
+    @PreAuthorize("hasRole('OWNER')")
+    // Factory-wise product counts (detailed) with pagination
+    @PostMapping("/factory-products")
+    public ResponseEntity<BaseResponseDTO<Page<FactoryProductCountDTO>>> getFactoryWiseProductCounts(
+            @RequestBody BaseRequestDTO request) {
+        BaseResponseDTO<Page<FactoryProductCountDTO>> response = productRestockRequestService.getFactoryWiseProductCounts(request);
+        return ResponseEntity.ok(response);
     }
 }

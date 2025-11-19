@@ -38,16 +38,11 @@ public class ToolCategoryService {
             String search) {
 
         try {
-            // Build specification with filters
             Specification<ToolCategory> spec = ToolCategorySpecifications.withFilters(search);
 
-            // Apply pagination and sorting
             Pageable pageable = PaginationUtil.toPageable(request);
 
-            // Execute query with specification and return Page directly
             Page<ToolCategory> categoriesPage = toolCategoryRepository.findAll(spec, pageable);
-
-            // Convert to DTO page
             Page<ToolCategoryDTO> categoryDTOsPage = categoriesPage.map(this::convertToDTO);
 
             return BaseResponseDTO.success("Tool categories retrieved successfully", categoryDTOsPage);
@@ -66,7 +61,6 @@ public class ToolCategoryService {
 
             String categoryName = addToolCategoryDTO.getName().trim();
 
-            // Check for duplicate name
             if (toolCategoryRepository.existsByNameIgnoreCase(categoryName)) {
                 return BaseResponseDTO.error("Tool category with name '" + categoryName + "' already exists");
             }
@@ -107,7 +101,6 @@ public class ToolCategoryService {
 
             ToolCategory existingCategory = categoryOptional.get();
 
-            // Check if name is being changed and if new name already exists
             if (!existingCategory.getName().equals(categoryName)) {
                 Optional<ToolCategory> duplicateCategory = toolCategoryRepository
                         .findByNameAndIdNot(categoryName, id);
@@ -116,7 +109,6 @@ public class ToolCategoryService {
                 }
             }
 
-            // Update fields
             existingCategory.setName(categoryName);
             existingCategory.setDescription(addToolCategoryDTO.getDescription());
             existingCategory.setUpdatedAt(LocalDateTime.now());

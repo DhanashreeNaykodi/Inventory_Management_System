@@ -1,5 +1,6 @@
 package com.example.inventory_factory_management.service;
 
+import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.RequestStatus;
@@ -14,7 +15,9 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 //@Transactional
@@ -65,7 +68,6 @@ public class ProductRestockRequestService {
 
             CentralOfficeProductRequest savedRequest = requestRepo.save(request);
 
-            // Return central office view (includes central office stock)
             CentralOfficeRestockResponseDTO responseDTO = convertToCentralOfficeDTO(savedRequest);
             responseDTO.setCurrentFactoryStock(currentFactoryStock);
 
@@ -76,18 +78,13 @@ public class ProductRestockRequestService {
         }
     }
 
-    // Unified central office inventory with filters
+    // central office inventory with filters
     public BaseResponseDTO<Page<CentralOfficeInventoryDTO>> getCentralOfficeInventory(
             Long productId, String productName, Long minQuantity, Long maxQuantity, BaseRequestDTO requestDTO) {
         try {
-            // Build specification with filters
             Specification<CentralOfficeInventory> spec = CentralOfficeInventorySpecifications.withFilters(
-                    productId, productName, minQuantity, maxQuantity
-            );
+                    productId, productName, minQuantity, maxQuantity);
 
-//            Pageable pageable = PaginationUtil.toPageable(requestDTO, "id");
-
-            // Create pageable with only page and size (no sorting)
             int page = requestDTO.getPage() == null ? 0 : requestDTO.getPage();
             int size = requestDTO.getSize() == null ? 20 : requestDTO.getSize();
             Pageable pageable = PageRequest.of(page, size);
@@ -153,6 +150,10 @@ public class ProductRestockRequestService {
 
             Product product = productRepo.findById(stockDTO.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
+
+            if(product.getStatus().equals(AccountStatus.INACTIVE)) {
+                throw new RuntimeException("Inactive products cannot be stocked");
+            }
 
             if (stockDTO.getQuantity() == null || stockDTO.getQuantity() <= 0) {
                 return BaseResponseDTO.error("Quantity must be greater than 0");
@@ -250,6 +251,30 @@ public class ProductRestockRequestService {
         }
     }
 
+
+    public BaseResponseDTO<Page<FactoryProductCountDTO>> getFactoryWiseProductCounts(BaseRequestDTO request) {
+        try {
+            Pageable pageable = PaginationUtil.toPageable(request, "factoryName");
+
+            Page<Object[]> results = inventoryRepo.getFactoryProductCountsDetailed(pageable);
+
+            // Convert Page<Object[]> to Page<FactoryProductCountDTO>
+            Page<FactoryProductCountDTO> resultPage = results.map(result ->
+                    new FactoryProductCountDTO(
+                            (Long) result[0],    // factoryId
+                            (String) result[1],  // factoryName
+                            (Long) result[2],    // productId
+                            (String) result[3],  // productName
+                            (Long) result[4]     // productCount
+                    )
+            );
+
+            return BaseResponseDTO.success("Factory product counts retrieved successfully", resultPage);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving factory product counts: " + e.getMessage());
+        }
+    }
 
 
 

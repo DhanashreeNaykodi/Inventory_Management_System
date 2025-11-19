@@ -7,6 +7,8 @@ import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
 import com.example.inventory_factory_management.entity.UserCentralOffice;
+import com.example.inventory_factory_management.exceptions.OperationNotPermittedException;
+import com.example.inventory_factory_management.exceptions.UserNotFoundException;
 import com.example.inventory_factory_management.repository.UserCentralOfficeRepository;
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
@@ -40,37 +42,48 @@ public class UserService {
     @Autowired
     private SecurityUtil securityUtil;
 
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
-    // Add this method to handle profile image upload
+
+    // handle update profile
     public BaseResponseDTO<UserDTO> updateProfile(Long userId, UserUpdateDTO userDTO, MultipartFile profileImage) {
         try {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
+            boolean updated = false;
 
-            // Update user fields
             if (userDTO.getUsername() != null) {
                 user.setUsername(userDTO.getUsername());
-            }
-            if (userDTO.getEmail() != null) {
-                user.setEmail(userDTO.getEmail());
-            }
-            if (userDTO.getPhone() != null) {
-                user.setPhone(Long.parseLong(userDTO.getPhone()));
+                updated = true;
             }
 
-            // Handle profile image upload
+            if (userDTO.getEmail() != null) {
+                user.setEmail(userDTO.getEmail());
+                updated = true;
+            }
+
+            if (userDTO.getPhone() != null) {
+                try {
+                    user.setPhone(Long.parseLong(userDTO.getPhone()));
+                    updated = true;
+                } catch (NumberFormatException e) {
+                    throw new OperationNotPermittedException("Invalid phone number");
+                }
+            }
+
             if (profileImage != null && !profileImage.isEmpty()) {
                 String imageUrl = cloudinaryService.uploadFile(profileImage);
                 user.setImg(imageUrl);
-            } else if (userDTO.getImg() != null && !userDTO.getImg().trim().isEmpty()) {
-                // Keep existing image if no new image provided
-                user.setImg(userDTO.getImg());
+                updated = true;
             }
 
+            if (!updated) {
+                throw new OperationNotPermittedException("At least one field required to update profile");
+            }
             user.setUpdatedAt(LocalDateTime.now());
             User updatedUser = userRepository.save(user);
-
             return BaseResponseDTO.success("Profile updated successfully", convertToDTO(updatedUser));
+
         } catch (Exception e) {
             return BaseResponseDTO.error("Failed to update profile: " + e.getMessage());
         }
@@ -80,7 +93,6 @@ public class UserService {
 
     public BaseResponseDTO<UserProfileWithFactoryDTO> getUserProfile() {
         try {
-            // Get current authenticated user from security context
             User currentUser = securityUtil.getCurrentUser();
 
             // Convert to DTO with factories and return
@@ -91,10 +103,10 @@ public class UserService {
         }
     }
 
+
     // For OWNER only - get any user's profile with factories
     public BaseResponseDTO<UserProfileWithFactoryDTO> getUserProfileById(Long userId) {
         try {
-            // Only OWNER can access this method (enforced by @PreAuthorize)
             User requestedUser = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -105,7 +117,6 @@ public class UserService {
         }
     }
 
-    // New conversion method for profile with factories
     private UserProfileWithFactoryDTO convertToProfileWithFactoriesDTO(User user) {
         UserProfileWithFactoryDTO dto = new UserProfileWithFactoryDTO();
         dto.setUserId(user.getUserId());

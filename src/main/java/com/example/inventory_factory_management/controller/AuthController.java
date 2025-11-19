@@ -20,11 +20,10 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public LoginResponseDTO loginUser(@Valid @RequestBody LoginDTO logindto) {
+    public LoginResponseDTO loginUser(@RequestBody LoginDTO logindto) {
         return authService.loginService(logindto);
     }
 
-    @PreAuthorize("hasRole('DISTRIBUTOR')")
     @PostMapping("/signup")
     public BaseResponseDTO<UserDTO> signupDistributor(@Valid @RequestBody RegisterDistributorDTO registerDistributorDTO) {
         return authService.registerDistributor(registerDistributorDTO);

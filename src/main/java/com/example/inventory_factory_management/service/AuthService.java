@@ -5,6 +5,9 @@ import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.User;
+import com.example.inventory_factory_management.exceptions.InvalidCredentialsException;
+import com.example.inventory_factory_management.exceptions.ResourceAlreadyExistsException;
+import com.example.inventory_factory_management.exceptions.UserNotFoundException;
 import com.example.inventory_factory_management.repository.UserRepository;
 import com.example.inventory_factory_management.security.JwtAuth;
 import com.example.inventory_factory_management.utils.SecurityUtil;
@@ -21,45 +24,28 @@ import java.util.Map;
 @Service
 public class AuthService {
 
-    @Autowired
     private UserRepository userRepository;
-    @Autowired
     private PasswordEncoder passwordEncoder;
-    @Autowired
     private JwtAuth jwtAuth;
-    @Autowired
     private TokenBlacklistService tokenBlacklistService;
-
-    @Autowired
     private SecurityUtil securityUtil;
-
-    @Autowired
     private EmailService emailService;
 
     @Autowired
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtAuth jwtAuth, TokenBlacklistService tokenBlacklistService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtAuth jwtAuth, TokenBlacklistService tokenBlacklistService, SecurityUtil securityUtil, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtAuth = jwtAuth;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.securityUtil = securityUtil;
+        this.emailService = emailService;
     }
 
 
-    public BaseResponseDTO<String> logout(String token) {
-        try {
-            // Extract token from "Bearer " prefix if present
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring(7);
-            }
-            tokenBlacklistService.blacklistToken(token);
-            return BaseResponseDTO.success("Logged out successfully");
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to logout: " + e.getMessage());
-        }
-    }
+
 
     public LoginResponseDTO loginService(LoginDTO logindto) {
-        User user = userRepository.findByEmail(logindto.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(logindto.getEmail()).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if(passwordEncoder.matches(logindto.getPassword(), user.getPassword())) {
 
@@ -71,28 +57,27 @@ public class AuthService {
             return response;
         }
 
-        throw new RuntimeException("Invalid password");
+        throw new InvalidCredentialsException("Invalid password");
     }
 
 
     public BaseResponseDTO<UserDTO> registerDistributor(RegisterDistributorDTO registerDTO) {
-        // Check if email already exists
-        if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered: " + registerDTO.getEmail());
-        }
 
         // Check if user email already exists
         if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered: " + registerDTO.getName() + "\n Login to your account.");
+            throw new ResourceAlreadyExistsException("Email already registered: " + registerDTO.getName() + "\n Login to your account.");
+        }
+        if(userRepository.findByPhone(registerDTO.getPhone()).isPresent()) {
+            throw new ResourceAlreadyExistsException("Contact number already registered " + registerDTO.getPhone());
         }
 
         // Create new distributor user
         User distributor = new User();
         distributor.setUsername(registerDTO.getName());
         distributor.setEmail(registerDTO.getEmail());
-        distributor.setPhone(Long.parseLong(registerDTO.getContactNumber()));
+        distributor.setPhone(registerDTO.getPhone());
 
-        String generatedPassword = registerDTO.getName().substring(0,3) + "@" + registerDTO.getContactNumber().toString().substring(0,7);
+        String generatedPassword = registerDTO.getName().substring(0,3) + "@" + registerDTO.getPhone().toString().substring(0,7);
         distributor.setPassword(passwordEncoder.encode(generatedPassword));
 
         distributor.setRole(Role.DISTRIBUTOR);
@@ -104,7 +89,8 @@ public class AuthService {
         securityUtil.sendWelcomeEmail(savedDistributor, generatedPassword);
 
         UserDTO responseDTO = convertDistributorToDTO(savedDistributor);
-        return BaseResponseDTO.success("Manager created successfully", responseDTO);
+        securityUtil.sendWelcomeEmail(savedDistributor, generatedPassword);
+        return BaseResponseDTO.success("You are successfully registered.\n Check your email for further credentials.", responseDTO);
 
     }
 
@@ -130,5 +116,16 @@ public class AuthService {
     }
 
 
-//    logout service
+
+    public BaseResponseDTO<String> logout(String token) {
+        try {
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            }
+            tokenBlacklistService.blacklistToken(token);
+            return BaseResponseDTO.success("Logged out successfully");
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Failed to logout: " + e.getMessage());
+        }
+    }
 }

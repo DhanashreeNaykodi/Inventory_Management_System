@@ -3,6 +3,7 @@ package com.example.inventory_factory_management.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Page;
 
 @Data
 @AllArgsConstructor
@@ -38,6 +39,7 @@ public class BaseResponseDTO<T> {
     public static <T> BaseResponseDTO<T> error(String message) {
         return new BaseResponseDTO<>(false, message, null);
     }
+
 
     @Data
     @AllArgsConstructor

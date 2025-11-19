@@ -17,9 +17,10 @@ public class AddChiefOfficerDTO {
     private Long centralOfficeId;
 
     @NotBlank(message = "Email is required")
-    @Pattern(
-            regexp = "^[A-Za-z][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$",
-            message = "Email must start with a letter and be valid like example@gmail.com")
+//    @Pattern(
+//            regexp = "^[A-Za-z][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$",
+//            message = "Email must start with a letter and be valid like example@gmail.com")
+    @Email(message = "Enter valid email")
     @Size(max = 100, message = "Email cannot exceed 100 characters")
     private String centralOfficerEmail;
 
@@ -29,7 +30,7 @@ public class AddChiefOfficerDTO {
     private String centralOfficerName;
 
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^[6-9]\\d{9}$", message = "Invalid Indian phone number format")
-    @Size(min = 10, max = 10, message = "Phone number must be exactly 10 digits")
+//    @Pattern(regexp = "^[6-9]\\d{9}$", message = "Invalid Indian phone number format")
+//    @Size(min = 10, max = 10, message = "Phone number must be exactly 10 digits")
     private String phone;
 }

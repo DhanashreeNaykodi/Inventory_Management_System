@@ -1,6 +1,5 @@
 package com.example.inventory_factory_management.controller;
 
-
 import com.example.inventory_factory_management.constants.OrderStatus;
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.entity.DistributorOrderRequest;
@@ -12,8 +11,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/distributor")
@@ -41,7 +38,7 @@ public class OrderController {
     }
 
     @PostMapping("/orders/create")
-    public BaseResponseDTO<DistributorOrderRequest> placeOrder(@RequestBody PlaceOrderDTO orderRequest) {
+    public BaseResponseDTO<DistributorOrderRequest> placeOrder(@Valid @RequestBody PlaceOrderDTO orderRequest) {
         try {
             DistributorOrderRequest order = orderService.placeOrder(orderRequest);
             return BaseResponseDTO.success("Order placed successfully", order);
@@ -75,7 +72,7 @@ public class OrderController {
 
 
 //    For chief officers
-    @PreAuthorize("hasRole('CHIEF_OFFICER')")
+    @PreAuthorize("hasRole('CENTRAL_OFFICER')")
     @GetMapping("/orders")
     public BaseResponseDTO<Page<DistributorOrderRequest>> getOrdersWithFilters(
             @RequestParam(required = false) OrderStatus status,
@@ -94,14 +91,13 @@ public class OrderController {
     }
 
 
-    @PreAuthorize("hasRole('CHIEF_OFFICER')")
+    @PreAuthorize("hasRole('CENTRAL_OFFICER')")
     @PostMapping("/{orderId}/process")
     public BaseResponseDTO<String> processOrder(
             @PathVariable Long orderId,
-            @RequestBody OrderActionDTO actionRequest) {
+            @Valid @RequestBody OrderActionDTO actionRequest) {
         try {
             orderService.processOrderAction(orderId, actionRequest);
-
             String message = "";
             switch (actionRequest.getStatus()) {
                 case APPROVED:
@@ -116,7 +112,6 @@ public class OrderController {
                 default:
                     message = "Order processed successfully";
             }
-
             return BaseResponseDTO.success(message);
         } catch (RuntimeException e) {
             return BaseResponseDTO.error(e.getMessage());

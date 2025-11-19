@@ -14,6 +14,9 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     boolean existsByName(String name);
 
+    boolean existsByNameIgnoreCase(String name);
+
+
     // Add this method for category-based operations
     List<Product> findByCategoryId(Long categoryId);
 

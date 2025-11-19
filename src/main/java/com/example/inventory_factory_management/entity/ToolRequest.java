@@ -46,6 +46,19 @@ public class ToolRequest {
 
     private LocalDateTime issuedAt;
     private LocalDateTime returnedAt;
+    private LocalDateTime dueDate;
+
+    // Extension tracking
+    private String extensionReason;
+    private Integer extensionCount = 0;
+
+    // Relationship to issuance record
+    @OneToOne(mappedBy = "request", cascade = CascadeType.ALL)
+    private ToolIssuance issuance;
+
+//    public void setAutoReturnDate(LocalDateTime ) {
+//    }
+
 //    private LocalDateTime autoReturnDate;
 //    private Boolean autoReturned = false;
 }

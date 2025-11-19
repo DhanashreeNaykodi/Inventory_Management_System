@@ -32,7 +32,7 @@ public class ChiefOfficeController {
 
     // Central Office Management Endpoints
     @PostMapping("/central-office")
-    public BaseResponseDTO<Void> createCentralOffice(@Valid @RequestBody CentralOfficeDTO centralOfficeDto) {
+    public BaseResponseDTO<Void> createCentralOffice( @RequestBody CentralOfficeDTO centralOfficeDto) {
         return centralOfficeService.createCentralOffice(centralOfficeDto);
     }
 

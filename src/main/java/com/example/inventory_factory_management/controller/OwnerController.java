@@ -19,7 +19,7 @@ public class OwnerController {
     // Create a new manager
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
-    public ResponseEntity<BaseResponseDTO<UserDTO>> createManager(@Valid @RequestBody UserDTO managerDTO) {
+    public ResponseEntity<BaseResponseDTO<UserDTO>> createManager(@RequestBody UserDTO managerDTO) {
         BaseResponseDTO<UserDTO> response = managerService.createManager(managerDTO);
         return ResponseEntity.ok(response);
     }
@@ -66,7 +66,7 @@ public class OwnerController {
     @PutMapping("/{managerId}")
     public ResponseEntity<BaseResponseDTO<UserDTO>> updateManager(
             @PathVariable Long managerId,
-            @Valid @RequestBody UserUpdateDTO managerDTO) {
+            @RequestBody UserUpdateDTO managerDTO) {
         BaseResponseDTO<UserDTO> response = managerService.updateManager(managerId, managerDTO);
         return ResponseEntity.ok(response);
     }

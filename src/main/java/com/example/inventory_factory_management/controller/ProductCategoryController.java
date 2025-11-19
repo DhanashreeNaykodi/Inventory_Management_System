@@ -25,7 +25,7 @@ public class ProductCategoryController {
 
     // CREATE CATEGORY
     @PostMapping("/createCategory")
-    public ResponseEntity<BaseResponseDTO<CategoryDTO>> createCategory(@Valid @RequestBody CategoryDTO categoryDTO) {
+    public ResponseEntity<BaseResponseDTO<CategoryDTO>> createCategory( @RequestBody CategoryDTO categoryDTO) {
         BaseResponseDTO<CategoryDTO> response = productService.createCategory(categoryDTO);
         return ResponseEntity.ok(response);
     }
@@ -57,7 +57,7 @@ public class ProductCategoryController {
     @PutMapping("/{id}")
     public ResponseEntity<BaseResponseDTO<CategoryDTO>> updateCategory(
             @PathVariable Long id,
-            @Valid @RequestBody CategoryDTO categoryDTO) {
+            @RequestBody CategoryDTO categoryDTO) {
         BaseResponseDTO<CategoryDTO> response = productService.updateCategory(id, categoryDTO);
         return ResponseEntity.ok(response);
     }

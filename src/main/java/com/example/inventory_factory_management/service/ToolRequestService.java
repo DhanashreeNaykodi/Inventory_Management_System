@@ -10,6 +10,7 @@ import com.example.inventory_factory_management.entity.*;
 import com.example.inventory_factory_management.repository.*;
 import com.example.inventory_factory_management.utils.PaginationUtil;
 import com.example.inventory_factory_management.utils.SecurityUtil;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +41,7 @@ public class ToolRequestService {
 
 
     // Worker creates tool request
+    @Transactional
     public BaseResponseDTO<WorkerToolResponseDTO> createToolRequest(CreateToolRequestDTO requestDTO) {
         try {
             User currentUser = securityUtil.getCurrentUser();
@@ -51,6 +53,9 @@ public class ToolRequestService {
             Tool tool = toolRepository.findById(requestDTO.getToolId())
                     .orElseThrow(() -> new RuntimeException("Tool not found"));
 
+            if(requestDTO.getQuantity() <= 0) {
+                return BaseResponseDTO.error("Quantity cannot be negative");
+            }
             // Get worker's factory
             Factory factory = currentUser.getUserFactories().stream()
                     .findFirst()
@@ -66,15 +71,15 @@ public class ToolRequestService {
                 return BaseResponseDTO.error("Insufficient quantity available");
             }
 
+
             ToolRequest toolRequest = new ToolRequest();
             toolRequest.setWorker(currentUser);
             toolRequest.setTool(tool);
             toolRequest.setRequestQty(requestDTO.getQuantity().longValue());
             toolRequest.setStatus(ToolOrProductRequestStatus.PENDING);
-//            toolRequest.setAutoReturnDate(LocalDateTime.now().plusDays(30));
+//            toolRequest.setAutoReturnDate(LocalDateTime.now().plusDays(7));
 
             ToolRequest savedRequest = toolRequestRepository.save(toolRequest);
-
             return BaseResponseDTO.success("Tool request created successfully", convertToDTO(savedRequest));
 
         } catch (Exception e) {
@@ -95,14 +100,14 @@ public class ToolRequestService {
             }
 
             // Check authorization based on tool type and user role
-            if (toolRequest.getTool().getIsExpensive().equals(Expensive.YES) &&
-                    !currentUser.getRole().equals(Role.MANAGER)) {
-                return BaseResponseDTO.error("Only manager can handle expensive tools");
-            }
-
-            if (toolRequest.getTool().getIsExpensive().equals(Expensive.NO) &&
-                    !currentUser.getRole().equals(Role.CHIEF_SUPERVISOR)) {
-                return BaseResponseDTO.error("Only chief supervisor can handle non-expensive tools");
+            if (toolRequest.getTool().getIsExpensive().equals(Expensive.YES)) {
+                if (!currentUser.getRole().equals(Role.MANAGER)) {
+                    return BaseResponseDTO.error("Only manager can handle expensive tools");
+                }
+            } else {
+                if (!currentUser.getRole().equals(Role.CHIEF_SUPERVISOR)) {
+                    return BaseResponseDTO.error("Only chief supervisor can handle non-expensive tools");
+                }
             }
 
             if ("APPROVE".equalsIgnoreCase(action)) {
@@ -189,6 +194,10 @@ public class ToolRequestService {
             User currentUser = securityUtil.getCurrentUser();
             Pageable pageable = PaginationUtil.toPageable(request);
 
+//            if(currentUser.getRole().equals(Role.WORKER)){
+//                return BaseResponseDTO.error("Not authorized to view pending requests");
+//            }
+
             Page<ToolRequest> pendingRequests;
 
             if (currentUser.getRole().equals(Role.CHIEF_SUPERVISOR)) {
@@ -211,84 +220,23 @@ public class ToolRequestService {
         }
     }
 
-    // Worker returns tool
-//    public BaseResponseDTO<String> returnTool(Long requestId) {
-//        try {
-//            User currentUser = securityUtil.getCurrentUser();
-//            ToolRequest toolRequest = toolRequestRepository
-//                    .findByIdAndWorkerId(requestId, currentUser.getUserId())
-//                    .orElseThrow(() -> new RuntimeException("Tool request not found or not owned by you"));
-//
-//            if (!toolRequest.getStatus().equals(ToolOrProductRequestStatus.APPROVED)) {
-//                return BaseResponseDTO.error("Tool is not issued or already returned");
-//            }
-//
-//            if (toolRequest.getTool().getType().equals(ToolType.PERISHABLE)) {
-//                return BaseResponseDTO.error("Perishable tools cannot be returned");
-//            }
-//
-//            // Return tool to stock
-//            Factory factory = toolRequest.getWorker().getUserFactories().stream()
-//                    .findFirst()
-//                    .map(UserFactory::getFactory)
-//                    .orElseThrow(() -> new RuntimeException("Factory not found"));
-//
-//            Tool tool = toolRequest.getTool();
-//            Long quantity = toolRequest.getRequestQty();
-//
-//            // Add back to stock
-//            ToolStock toolStock = toolStockRepository.findByToolIdAndFactoryFactoryId(
-//                            tool.getId(), factory.getFactoryId())
-//                    .orElseThrow(() -> new RuntimeException("Tool stock not found"));
-//
-//            toolStock.setAvailableQuantity(toolStock.getAvailableQuantity() + quantity);
-//            toolStock.setIssuedQuantity(toolStock.getIssuedQuantity() - quantity);
-//            toolStockRepository.save(toolStock);
-//
-//            // Add back to storage
-//            List<ToolStorageMapping> storageMappings = toolStorageMappingRepository
-//                    .findByToolIdAndFactoryFactoryId(tool.getId(), factory.getFactoryId());
-//
-//            if (!storageMappings.isEmpty()) {
-//                ToolStorageMapping firstMapping = storageMappings.get(0);
-//                firstMapping.setQuantity(firstMapping.getQuantity() + quantity.intValue());
-//                toolStorageMappingRepository.save(firstMapping);
-//            }
-//
-//            // Update issuance record
-//            ToolIssuance issuance = toolIssuanceRepository.findByRequestId(toolRequest.getId())
-//                    .orElseThrow(() -> new RuntimeException("Issuance record not found"));
-//            issuance.setStatus(ToolIssuanceStatus.RETURNED);
-//            toolIssuanceRepository.save(issuance);
-//
-//            // Update request
-//            toolRequest.setStatus(ToolOrProductRequestStatus.COMPLETED);
-//            toolRequest.setReturnedAt(LocalDateTime.now());
-//            toolRequestRepository.save(toolRequest);
-//
-//            return BaseResponseDTO.success("Tool returned successfully");
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error returning tool: " + e.getMessage());
-//        }
-//    }
 
-//    // Get worker's own requests
-//    public BaseResponseDTO<Page<WorkerToolResponseDTO>> getMyRequests(BaseRequestDTO request) {
-//        try {
-//            User currentUser = securityUtil.getCurrentUser();
-//            Pageable pageable = PaginationUtil.toPageable(request, "createdAt");
-//
-//            Page<ToolRequest> myRequests = toolRequestRepository
-//                    .findByWorkerId(currentUser.getUserId(), pageable);
-//
-//            Page<WorkerToolResponseDTO> dtos = myRequests.map(this::convertToDTO);
-//            return BaseResponseDTO.success("Your tool requests retrieved successfully", dtos);
-//
-//        } catch (Exception e) {
-//            return BaseResponseDTO.error("Error retrieving your requests: " + e.getMessage());
-//        }
-//    }
+    // Get worker's own requests
+    public BaseResponseDTO<Page<WorkerToolResponseDTO>> getMyRequests(BaseRequestDTO request) {
+        try {
+            User currentUser = securityUtil.getCurrentUser();
+            Pageable pageable = PaginationUtil.toPageable(request, "createdAt");
+
+            Page<ToolRequest> myRequests = toolRequestRepository
+                    .findByWorkerUserId(currentUser.getUserId(), pageable);
+
+            Page<WorkerToolResponseDTO> dtos = myRequests.map(this::convertToDTO);
+            return BaseResponseDTO.success("Your tool requests retrieved successfully", dtos);
+
+        } catch (Exception e) {
+            return BaseResponseDTO.error("Error retrieving your requests: " + e.getMessage());
+        }
+    }
 
 
     private WorkerToolResponseDTO convertToDTO(ToolRequest request) {
@@ -309,4 +257,6 @@ public class ToolRequestService {
 //        dto.setAutoReturnDate(request.getAutoReturnDate());
         return dto;
     }
+
+
 }

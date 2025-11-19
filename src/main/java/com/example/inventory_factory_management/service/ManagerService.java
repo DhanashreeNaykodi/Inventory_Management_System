@@ -167,7 +167,7 @@ public class ManagerService {
         }
     }
 
-    // Search managers by name (partial match)
+
     public BaseResponseDTO<Page<UserDTO>> searchManagersByName(String managerName, BaseRequestDTO request) {
         try {
 //            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());

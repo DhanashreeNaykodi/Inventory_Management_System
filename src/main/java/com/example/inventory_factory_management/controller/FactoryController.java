@@ -43,7 +43,7 @@ public class FactoryController {
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/createFactory")
-    public ResponseEntity<BaseResponseDTO<FactoryDTO>> createFactory(@Valid @RequestBody FactoryDTO factoryDTO) {
+    public ResponseEntity<BaseResponseDTO<FactoryDTO>> createFactory(@RequestBody FactoryDTO factoryDTO) {
         BaseResponseDTO<FactoryDTO> response = factoryService.createFactory(factoryDTO);
         return ResponseEntity.ok(response);
     }
@@ -61,6 +61,8 @@ public class FactoryController {
         BaseResponseDTO<String> response = factoryService.deleteFactory(id);
         return ResponseEntity.ok(response);
     }
+
+
     // For ID-based toggle
     @PreAuthorize("hasRole('OWNER')")
     @PutMapping("factory/{id}/toggle-status")

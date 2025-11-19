@@ -1,5 +1,6 @@
 package com.example.inventory_factory_management.dto;
 import com.example.inventory_factory_management.constants.AccountStatus;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -12,8 +13,14 @@ import java.util.List;
 @Setter
 public class FactoryDTO {
     private Long factoryId;
+
+    //    @NotBlank(message = "Name is required")
     private String name;
+
+//    @NotBlank(message = "City is required")
     private String city;
+
+//    @NotBlank(message = "City is required")
     private String address;
     private AccountStatus status;
 

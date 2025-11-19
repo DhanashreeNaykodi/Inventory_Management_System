@@ -5,5 +5,8 @@ public enum ToolIssuanceStatus {
     ISSUED,
     EXTENDED,
     RETURNED,
-    CONFISCATED;
+    EXTENSION_REQUESTED,
+    EXTENSION_APPROVED,
+    EXTENSION_REJECTED,
+    OVERDUE;
 }

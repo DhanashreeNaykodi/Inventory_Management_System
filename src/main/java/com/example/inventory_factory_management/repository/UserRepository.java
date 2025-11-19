@@ -2,6 +2,7 @@ package com.example.inventory_factory_management.repository;
 
 import com.example.inventory_factory_management.constants.Role;
 import com.example.inventory_factory_management.entity.User;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -39,4 +40,6 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     List<User> findByUsernameContainingIgnoreCaseAndRole(String username, Role role);
 
+    Optional<User> findByPhone(@Pattern(regexp = "^(\\+91|0)?[6-9]\\d{9}$",
+            message = "Enter a valid Indian mobile number") Long phone);
 }

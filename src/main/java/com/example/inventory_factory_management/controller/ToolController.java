@@ -5,10 +5,8 @@ import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.constants.Expensive;
 import com.example.inventory_factory_management.constants.ToolType;
 import com.example.inventory_factory_management.dto.*;
-//import com.example.inventory_factory_management.entity.ToolRequest;
 import com.example.inventory_factory_management.service.ToolCategoryService;
-//import com.example.inventory_factory_management.service.ToolRequestService;
-//import com.example.inventory_factory_management.service.ToolRequestService;
+import com.example.inventory_factory_management.service.ToolRequestService;
 import com.example.inventory_factory_management.service.ToolService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +29,8 @@ public class ToolController {
     @Autowired
     private ToolService toolService;
 
-//    @Autowired
-//    private ToolRequestService toolRequestService;
+    @Autowired
+    private ToolRequestService toolRequestService;
 
 
     @GetMapping("/tool-categories")
@@ -59,7 +57,7 @@ public class ToolController {
     @PreAuthorize("hasAnyRole('OWNER')")
     public ResponseEntity<BaseResponseDTO<ToolCategoryDTO>> updateToolCategory(
             @PathVariable Long id,
-            @RequestBody AddToolCategoryDTO addToolCategoryDTO) {
+            @Valid @RequestBody AddToolCategoryDTO addToolCategoryDTO) {
 
         BaseResponseDTO<ToolCategoryDTO> response = toolCategoryService.updateToolCategory(id, addToolCategoryDTO);
         return ResponseEntity.status(response.isSuccess() ? 200 : 400).body(response);
@@ -111,7 +109,7 @@ public class ToolController {
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<BaseResponseDTO<ToolResponseDTO>> updateTool(
             @PathVariable Long id,
-            @ModelAttribute CreateToolDTO updateToolDTO) {
+            @Valid @ModelAttribute CreateToolDTO updateToolDTO) {
         BaseResponseDTO<ToolResponseDTO> response = toolService.updateTool(id, updateToolDTO);
         return ResponseEntity.ok(response);
     }
@@ -166,35 +164,34 @@ public class ToolController {
 //        return ResponseEntity.ok(response);
 //    }
 
-
     // Worker creates tool request
-//    @PostMapping("/requests/create")
-//    @PreAuthorize("hasRole('WORKER')")
-//    public ResponseEntity<BaseResponseDTO<WorkerToolResponseDTO>> createToolRequest(
-//            @Valid @RequestBody CreateToolRequestDTO requestDTO) {
-//        BaseResponseDTO<WorkerToolResponseDTO> response = toolRequestService.createToolRequest(requestDTO);
-//        HttpStatus status = response.isSuccess() ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
-//
-//    // Handle approval/rejection (Chief Supervisor & Manager)
-//    @PostMapping("/requests/handle/{requestId}")
-//    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<String>> handleToolRequest(
-//            @PathVariable Long requestId,
-//            @RequestParam String action,
-//            @RequestParam(required = false) String rejectionReason) {
-//        BaseResponseDTO<String> response = toolRequestService.handleToolRequest(requestId, action, rejectionReason);
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    // Get pending requests for approval (Chief Supervisor & Manager)
-//    @GetMapping("/requests/pending")
-//    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<Page<WorkerToolResponseDTO>>> getPendingRequests(
-//            @ModelAttribute BaseRequestDTO request) {
-//        BaseResponseDTO<Page<WorkerToolResponseDTO>> response = toolRequestService.getPendingRequests(request);
-//        return ResponseEntity.ok(response);
-//    }
+    @PostMapping("/requests/create")
+    @PreAuthorize("hasRole('WORKER')")
+    public ResponseEntity<BaseResponseDTO<WorkerToolResponseDTO>> createToolRequest(
+             @Valid @RequestBody CreateToolRequestDTO requestDTO) {
+        BaseResponseDTO<WorkerToolResponseDTO> response = toolRequestService.createToolRequest(requestDTO);
+        HttpStatus status = response.isSuccess() ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(response);
+    }
+
+    // Handle approval/rejection (Chief Supervisor & Manager)
+    @PostMapping("/requests/handle/{requestId}")
+    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
+    public ResponseEntity<BaseResponseDTO<String>> handleToolRequest(
+            @PathVariable Long requestId,
+            @RequestParam String action,
+            @RequestParam(required = false) String rejectionReason) {
+        BaseResponseDTO<String> response = toolRequestService.handleToolRequest(requestId, action, rejectionReason);
+        return ResponseEntity.ok(response);
+    }
+
+    // Get pending requests for approval (Chief Supervisor & Manager)
+    @GetMapping("/requests/pending")
+    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER', 'WORKER')")
+    public ResponseEntity<BaseResponseDTO<Page<WorkerToolResponseDTO>>> getPendingRequests(
+            @ModelAttribute BaseRequestDTO request) {
+        BaseResponseDTO<Page<WorkerToolResponseDTO>> response = toolRequestService.getPendingRequests(request);
+        return ResponseEntity.ok(response);
+    }
 
 }
