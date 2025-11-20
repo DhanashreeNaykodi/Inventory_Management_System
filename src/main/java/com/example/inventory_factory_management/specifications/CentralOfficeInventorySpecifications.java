@@ -44,10 +44,14 @@ public class CentralOfficeInventorySpecifications {
             Long productId,
             String productName,
             Long minQuantity,
-            Long maxQuantity) {
-        return Specification.where(withProductId(productId))
-                .and(withProductName(productName))
-                .and(withMinQuantity(minQuantity))
-                .and(withMaxQuantity(maxQuantity));
+            Long maxQuantity
+    ) {
+        return Specification.allOf(
+                withProductId(productId),
+                withProductName(productName),
+                withMinQuantity(minQuantity),
+                withMaxQuantity(maxQuantity)
+        );
     }
+
 }

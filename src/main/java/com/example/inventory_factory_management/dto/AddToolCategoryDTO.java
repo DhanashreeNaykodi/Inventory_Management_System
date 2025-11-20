@@ -17,6 +17,6 @@ public class AddToolCategoryDTO {
     private String name;
 
     @NotBlank(message = "Description is required")
-    @Size(min=4, max = 20, message = "Tool category description should be in range 4 to 70")
+    @Size(min=4, max = 70, message = "Tool category description should be in range 4 to 70")
     private String description;
 }

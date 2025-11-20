@@ -15,19 +15,14 @@ import java.util.Optional;
 @Repository
 public interface FactoryRepository extends JpaRepository<Factory, Long> {
     boolean existsByName(String name);
+    boolean existsByNameContainingIgnoreCase(String name);
     List<Factory> findByStatus(AccountStatus status);
     Page<Factory> findByNameContainingIgnoreCase(String name, Pageable pageable);
     Page<Factory> findByCityAndStatus(String city, AccountStatus status, Pageable pageable);
-//    Optional<factory> findByNameContainingIgnoreCaseNoPageable(String factoryName);
 
-
-//    // FIXED: Replace the invalid method with this
-    @Query("SELECT f FROM Factory f WHERE LOWER(f.name) LIKE LOWER(CONCAT('%', :factoryName, '%'))")
-    List<Factory> findByNameContainingIgnoreCase(@Param("factoryName") String factoryName);
-
-    // OR if you need a single result, use this:
-    @Query("SELECT f FROM Factory f WHERE LOWER(f.name) = LOWER(:factoryName)")
-    Optional<Factory> findByNameIgnoreCase(@Param("factoryName") String factoryName);
 
     Optional<Factory> findByName(String factoryName);
+
+    List<Factory> findByNameContainingIgnoreCase(String factoryName);
+
 }

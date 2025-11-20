@@ -16,6 +16,7 @@ public interface ToolStockRepository extends JpaRepository<ToolStock, Long> {
 
     Page<ToolStock> findByFactoryFactoryId(Long factoryId, Pageable pageable);
 
-    @Query("SELECT ts FROM ToolStock ts WHERE ts.tool.id = :toolId AND ts.factory.factoryId = :factoryId")
-    Optional<ToolStock> findByToolIdAndFactoryFactoryId(@Param("toolId") Long toolId, @Param("factoryId") Long factoryId);
+
+    Optional<ToolStock> findByTool_IdAndFactory_FactoryId(Long toolId, Long factoryId);
+
 }

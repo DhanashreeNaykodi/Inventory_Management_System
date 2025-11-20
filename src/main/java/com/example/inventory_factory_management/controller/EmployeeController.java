@@ -52,12 +52,6 @@ public class EmployeeController {
         return employeeService.getEmployeesByFactoryId(factoryId);
     }
 
-    // Get employees by factory name
-//    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-//    @GetMapping("/employees/factories/name/{factoryName}")
-//    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(@PathVariable String factoryName) {
-//        return employeeService.getEmployeesByFactoryName(factoryName);
-//    }
 
     // Get manager's own factory employees
     @PreAuthorize("hasRole('MANAGER')")
@@ -85,7 +79,7 @@ public class EmployeeController {
         return employeeService.getAllEmployees(filterDTO);
     }
 
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'CHIEF_SUPERVISOR', 'WORKER')")
     @PutMapping("/employees/{employeeId}")
     public BaseResponseDTO<UserDTO> updateEmployee(@PathVariable Long employeeId,
                                                    @Valid @RequestBody CreateEmployeeDTO employeeDTO) {
@@ -98,9 +92,4 @@ public class EmployeeController {
         return employeeService.deleteEmployee(employeeId);
     }
 
-//    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-//    @GetMapping("/my-factories")
-//    public BaseResponseDTO<List<FactoryInfoDTO>> getMyFactories() {
-//        return employeeService.getMyFactories();
-//    }
 }

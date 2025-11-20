@@ -12,7 +12,7 @@ import lombok.*;
 public class UserUpdateDTO {
 
     @NotBlank(message = "Name cannot be blank")
-    @Size(min = 3, max = 50, message = "Distributor name must be between 3 and 50 characters")
+    @Size(min = 3, max = 50, message = "User name must be between 3 and 50 characters")
     private String username;
 
 //    @Pattern(
@@ -28,8 +28,7 @@ public class UserUpdateDTO {
 //     private Long phone;
 
     @NotBlank(message = "Phone cannot be null")
+//    @Size(min = 10, max = 10, message = "Phone has to be of 10 digits")
     private String phone;
 
-
-    private String img; // For existing image URL
 }

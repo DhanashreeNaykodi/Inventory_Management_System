@@ -14,9 +14,4 @@ import java.util.List;
 @Repository
 public interface DistributorOrderRequestRepository extends JpaRepository<DistributorOrderRequest, Long>,
         JpaSpecificationExecutor<DistributorOrderRequest> {
-
-//    List<DistributorOrderRequest> findByStatusOrderByOrderDateDesc(OrderStatus orderStatus);
-//    Page<DistributorOrderRequest> findByStatus(OrderStatus status, Pageable pageable);
-//    Page<DistributorOrderRequest> findByDistributorId(Long distributorId, Pageable pageable);
-//    Page<DistributorOrderRequest> findByDistributorIdAndStatus(Long distributorId, OrderStatus status, Pageable pageable);
 }

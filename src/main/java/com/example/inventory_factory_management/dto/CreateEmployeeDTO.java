@@ -4,6 +4,7 @@ import com.example.inventory_factory_management.constants.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 @Getter
@@ -13,11 +14,11 @@ import lombok.*;
 @Data
 public class CreateEmployeeDTO {
     @NotBlank(message = "Username is required")
+    @Size(min = 2, max = 20, message = "Username should be in between 2 and 20 characters")
     private String username;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
-
     private String email;
 
     @NotBlank(message = "Phone number is required")
@@ -26,6 +27,7 @@ public class CreateEmployeeDTO {
 
     @NotNull(message = "Role is required")
     private Role role;
+
 
     private Long bayId;
 

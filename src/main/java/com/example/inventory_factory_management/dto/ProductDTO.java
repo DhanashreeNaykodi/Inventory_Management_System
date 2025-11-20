@@ -22,7 +22,7 @@ public class ProductDTO {
     private Long id;
 
     @NotBlank(message = "Product name cannot be blank")
-//    @Size(min = 3, max = 50, message = "Product name must be between 3 and 50 characters")
+    @Size(min = 3, max = 50, message = "Product name must be between 3 and 50 characters")
     private String name;
 
     @JsonIgnore // This prevents MultipartFile from being included in JSON response
@@ -34,7 +34,7 @@ public class ProductDTO {
 
 
     @NotBlank(message = "Description cannot be blank")
-//        @Size(min = 10, max = 200, message = "Product description must be between 3 and 50 characters")
+        @Size(min = 10, max = 200, message = "Product description must be between 3 and 50 characters")
     private String prodDescription;
 
     @NotNull(message = "Price cannot be null")

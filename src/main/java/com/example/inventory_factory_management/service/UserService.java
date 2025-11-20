@@ -13,6 +13,7 @@ import com.example.inventory_factory_management.repository.UserCentralOfficeRepo
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
 import com.example.inventory_factory_management.utils.SecurityUtil;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,7 @@ public class UserService {
 
 
     // handle update profile
+    @Transactional
     public BaseResponseDTO<UserDTO> updateProfile(Long userId, UserUpdateDTO userDTO, MultipartFile profileImage) {
         try {
             User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
@@ -108,7 +110,7 @@ public class UserService {
     public BaseResponseDTO<UserProfileWithFactoryDTO> getUserProfileById(Long userId) {
         try {
             User requestedUser = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
 
             UserProfileWithFactoryDTO profileDTO = convertToProfileWithFactoriesDTO(requestedUser);
             return BaseResponseDTO.success(profileDTO);

@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/owner")
+@Validated
 public class ProductController {
 
     @Autowired
@@ -45,7 +47,7 @@ public class ProductController {
     @PostMapping(value = "/uploadImage/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponseDTO<?>> uploadProductImage(
             @PathVariable Long productId,
-            @RequestParam("imageFile") MultipartFile imageFile) {
+            @ValidImage @RequestParam("imageFile") MultipartFile imageFile) {
 
         BaseResponseDTO<?> response = productService.uploadProductImage(productId, imageFile);
         return ResponseEntity.ok(response);

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +19,7 @@ import java.io.IOException;
 
 @RestController
 @RequestMapping("/user")
+@Validated
 public class UserController {
 
     @Autowired
@@ -49,6 +51,7 @@ public class UserController {
             @RequestParam(value = "username", required = false) String username,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "phone", required = false) String phone,
+            @ValidImage
             @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
 
         UserUpdateDTO userDTO = new UserUpdateDTO();
@@ -65,10 +68,12 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+
+
+
     @PostMapping("/logout")
     public ResponseEntity<BaseResponseDTO<String>> logout(
             @RequestHeader("Authorization") String authHeader) {
-
         BaseResponseDTO<String> response = authService.logout(authHeader);
         return ResponseEntity.ok(response);
     }

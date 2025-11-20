@@ -6,7 +6,7 @@ import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.CentralOffice;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserCentralOffice;
-import com.example.inventory_factory_management.exceptions.ResourceAlreadyExistsException;
+import com.example.inventory_factory_management.exceptions.*;
 import com.example.inventory_factory_management.repository.CentralOfficeRepository;
 import com.example.inventory_factory_management.repository.UserCentralOfficeRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
@@ -45,7 +45,8 @@ public class CentralOfficeService {
         try {
             // Check if central office already exists
             if (centralOfficeRepository.count() > 0) {
-                return BaseResponseDTO.error("A Central Office already exists in the system");
+//                return BaseResponseDTO.error("A Central Office already exists in the system");
+                throw new OperationNotPermittedException("A Central Office already exists in the system");
             }
 
             if (dto.getCentralOfficerHeadEmail() == null || dto.getCentralOfficerHeadEmail().isBlank()) {
@@ -63,7 +64,8 @@ public class CentralOfficeService {
             if (existingUser.isPresent()) {
                 userEntity = existingUser.get();
                 if (userEntity.getRole() != Role.CENTRAL_OFFICER) {
-                    return BaseResponseDTO.error("User already exists with different role.");
+//                    return BaseResponseDTO.error("User already exists with different role.");
+
                 }
             } else {
                 // Create central officer user
@@ -83,7 +85,8 @@ public class CentralOfficeService {
 
             // Check if mapping already exists
             if (userCentralOfficeRepository.existsByUser(userEntity)) {
-                return BaseResponseDTO.error("Central Officer is already assigned to an office");
+//                return BaseResponseDTO.error("Central Officer is already assigned to an office");
+                throw new OperationNotPermittedException("Central Officer is already assigned to an office");
             }
 
             // Map this officer to the central office
@@ -103,32 +106,33 @@ public class CentralOfficeService {
 //    INDIVIDUAL CHIEF OFFICERS
     @Transactional
     public BaseResponseDTO<Void> addChiefOfficerToOffice(AddChiefOfficerDTO dto) {
-        try {
-            // Check if the Central Office exists
-            CentralOffice office = centralOfficeRepository.findById(dto.getCentralOfficeId())
-                    .orElseThrow(() -> new RuntimeException("Central Office not found with ID: " + dto.getCentralOfficeId()));
+
+            CentralOffice office = centralOfficeRepository.findById(dto.getCentralOfficeId()).orElseThrow(() -> new RuntimeException("Central Office not found with ID: " + dto.getCentralOfficeId()));
 
             Optional<User> existingUserOpt = userRepository.findByEmail(dto.getCentralOfficerEmail());
 
             if (existingUserOpt.isPresent()) {
                 User existingUser = existingUserOpt.get();
 
-                // Check if user is already a CENTRAL_OFFICER
                 if (existingUser.getRole() == Role.CENTRAL_OFFICER) {
                     // Check if already mapped to office
                     if (userCentralOfficeRepository.existsByUser(existingUser)) {
-                        return BaseResponseDTO.error("Chief Officer with email '" + dto.getCentralOfficerEmail() + "' already exists and is assigned to an office");
+//                        return BaseResponseDTO.error("Chief Officer with email '" + dto.getCentralOfficerEmail() + "' already exists and is assigned to an office");
+                        throw new UserAlreadyExistsException("Chief Officer with email '" + dto.getCentralOfficerEmail() + "' already exists and is assigned to an office");
                     }
                 } else {
                     // User exists but has different role - check if we should allow this
-                    return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists with role: " + existingUser.getRole());
+//                    return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists with role: " + existingUser.getRole());
+                    throw new UserAlreadyExistsException("Chief Officer with email '" + dto.getCentralOfficerEmail() + "' already exists and is assigned to an office");
 
                 }
             } else {
                 //Create new user only if email doesn't exist
                 // Validate email doesn't exist in any role
                 if (userRepository.existsByEmail(dto.getCentralOfficerEmail())) {
-                    return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists");
+//                    return BaseResponseDTO.error("User with email '" + dto.getCentralOfficerEmail() + "' already exists");
+                    throw new UserAlreadyExistsException("Chief Officer with email '" + dto.getCentralOfficerEmail() + "' already exists and is assigned to an office");
+
                 }
 
                 User newUser = new User();
@@ -143,6 +147,7 @@ public class CentralOfficeService {
                         newUser.setPhone(Long.parseLong(dto.getPhone()));
                     } catch (NumberFormatException e) {
                         return BaseResponseDTO.error("Invalid phone number format");
+
                     }
                 }
 
@@ -162,7 +167,8 @@ public class CentralOfficeService {
                     .orElseThrow(() -> new RuntimeException("Failed to retrieve user after creation"));
 
             if (userCentralOfficeRepository.existsByUserAndOffice(officer, office)) {
-                return BaseResponseDTO.error("Chief Officer is already assigned to this office");
+//                return BaseResponseDTO.error("Chief Officer is already assigned to this office")
+                throw new UserAlreadyExistsException("Chief Officer is already assigned to this office");
             }
 
             // Map the officer to the Central Office
@@ -173,9 +179,6 @@ public class CentralOfficeService {
 
             return BaseResponseDTO.success("Central Officer added to Central Office successfully");
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to add central officer: cannot create chief officer with same email" + e.getMessage());
-        }
     }
 
     // Updated email method name to match new naming convention
@@ -201,7 +204,6 @@ public class CentralOfficeService {
 
 
     public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOfficers() {
-        try {
             List<CentralOffice> offices = centralOfficeRepository.findAll();
 
             // Convert Entity → DTO
@@ -236,102 +238,79 @@ public class CentralOfficeService {
 
             return BaseResponseDTO.success("Central offices fetched successfully", officeDtos);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get central offices: " + e.getMessage());
-        }
     }
 
     @Transactional
     public BaseResponseDTO<Void> removeChiefOfficerFromOffice(Long chiefOfficerId) {
-        try {
-            User chiefOfficer = userRepository.findById(chiefOfficerId)
-                    .orElseThrow(() -> new RuntimeException("Chief Officer not found"));
+            User chiefOfficer = userRepository.findById(chiefOfficerId).orElseThrow(() -> new UserNotFoundException("Chief Officer not found"));
 
             Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
             if (mapping.isEmpty()) {
-                return BaseResponseDTO.error("Chief Officer is not assigned to any office");
+                throw new UnauthorizedAccessException("Chief Officer is not assigned to any office");
             }
 
             // Remove the mapping
             userCentralOfficeRepository.delete(mapping.get());
-
             return BaseResponseDTO.success("Chief Officer removed from office successfully");
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to remove chief officer: " + e.getMessage());
-        }
     }
 
 
     @Transactional
     public BaseResponseDTO<Void> removeChiefOfficerByName(String chiefOfficerName) {
-        try {
             if (chiefOfficerName == null || chiefOfficerName.trim().isEmpty()) {
-                return BaseResponseDTO.error("Chief officer name is required");
+                throw new IllegalArgumentException("Chief officer name is required");
             }
 
-            // Search for central officers by name (case-insensitive)
             List<User> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(chiefOfficerName, Role.CENTRAL_OFFICER);
-
             if (centralOfficers.isEmpty()) {
-                return BaseResponseDTO.error("No chief officer found with name: " + chiefOfficerName);
+                throw new UserAlreadyExistsException("No chief officer found with name: " + chiefOfficerName);
             }
 
-            if (centralOfficers.size() > 1) {
-                List<String> officerNames = centralOfficers.stream()
-                        .map(User::getUsername)
-                        .collect(Collectors.toList());
-                return BaseResponseDTO.error("Multiple chief officers found. Please be more specific: " + officerNames);
-            }
+//            if (centralOfficers.size() > 1) {
+//                List<String> officerNames = centralOfficers.stream()
+//                        .map(User::getUsername)
+//                        .collect(Collectors.toList());
+//                return BaseResponseDTO.error("Multiple chief officers found. Please be more specific: " + officerNames);
+//            }
 
             User chiefOfficer = centralOfficers.get(0);
 
             // Find the mapping
             Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
             if (mapping.isEmpty()) {
-                return BaseResponseDTO.error("Chief Officer '" + chiefOfficer.getUsername() + "' is not assigned to any office");
+                throw new ResourceNotFoundException("Chief Officer '" + chiefOfficer.getUsername() + "' is not assigned to any office");
             }
 
             // Remove the mapping
             userCentralOfficeRepository.delete(mapping.get());
-
             return BaseResponseDTO.success("Chief Officer '" + chiefOfficer.getUsername() + "' removed from office successfully");
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to remove chief officer: " + e.getMessage());
-        }
     }
 
 
 
     public BaseResponseDTO<List<CentralOfficerDTO>> searchCentralOfficersByName(String name) {
-        try {
             if (name == null || name.trim().isEmpty()) {
-                return BaseResponseDTO.error("Name is required for search");
+                throw new IllegalArgumentException("Name is required for search");
             }
-
-            // Search for central officers by username (case-insensitive)
             List<User> centralOfficers = userRepository.findByUsernameContainingIgnoreCaseAndRole(name, Role.CENTRAL_OFFICER);
 
             if (centralOfficers.isEmpty()) {
-                return BaseResponseDTO.error("No central officers found with name: " + name);
+                throw new UserNotFoundException("No central officers found with name: " + name);
             }
 
-            // Convert to DTO
-            List<CentralOfficerDTO> officerDTOs = centralOfficers.stream()
-                    .map(this::convertToCentralOfficerDTO)
+            List<CentralOfficerDTO> officerDTOs = centralOfficers.stream().map(this::convertToCentralOfficerDTO)
                     .collect(Collectors.toList());
 
             return BaseResponseDTO.success("Central officers found successfully", officerDTOs);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to search central officers: " + e.getMessage());
-        }
+
     }
 
     private CentralOfficerDTO convertToCentralOfficerDTO(User officer) {
         CentralOfficerDTO dto = new CentralOfficerDTO();
         dto.setUserId(officer.getUserId());
-        dto.setName(officer.getUsername()); // This is correct - mapping username to name in DTO
+        dto.setName(officer.getUsername());
         dto.setEmail(officer.getEmail());
         dto.setPhone(officer.getPhone() != null ? officer.getPhone().toString() : null);
         dto.setStatus(officer.getStatus().toString());

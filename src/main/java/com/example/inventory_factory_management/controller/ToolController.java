@@ -47,7 +47,7 @@ public class ToolController {
 
     @PostMapping("/tool-categories/create")
     @PreAuthorize("hasAnyRole('OWNER')")
-    public BaseResponseDTO<ToolCategoryDTO> createToolCategory(@RequestBody AddToolCategoryDTO addToolCategoryDTO) {
+    public BaseResponseDTO<ToolCategoryDTO> createToolCategory(@Valid @RequestBody AddToolCategoryDTO addToolCategoryDTO) {
         BaseResponseDTO<ToolCategoryDTO> response = toolCategoryService.createToolCategory(addToolCategoryDTO);
         return response;
     }
@@ -78,7 +78,7 @@ public class ToolController {
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<BaseResponseDTO<ToolResponseDTO>> createTool(
-            @ModelAttribute CreateToolDTO createToolDTO) {
+            @Valid @ModelAttribute CreateToolDTO createToolDTO) {
         BaseResponseDTO<ToolResponseDTO> response = toolService.createTool(createToolDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -156,13 +156,6 @@ public class ToolController {
         return ResponseEntity.ok(response);
     }
 
-    //  without pagination for dropdown
-//    @GetMapping("/storage-locations/all-codes")
-//    @PreAuthorize("hasRole('MANAGER')")
-//    public ResponseEntity<BaseResponseDTO<List<String>>> getAllStorageLocationCodes() {
-//        BaseResponseDTO<List<String>> response = toolService.getAllStorageLocationCodes();
-//        return ResponseEntity.ok(response);
-//    }
 
     // Worker creates tool request
     @PostMapping("/requests/create")
@@ -174,16 +167,6 @@ public class ToolController {
         return ResponseEntity.status(status).body(response);
     }
 
-    // Handle approval/rejection (Chief Supervisor & Manager)
-    @PostMapping("/requests/handle/{requestId}")
-    @PreAuthorize("hasAnyRole('CHIEF_SUPERVISOR', 'MANAGER')")
-    public ResponseEntity<BaseResponseDTO<String>> handleToolRequest(
-            @PathVariable Long requestId,
-            @RequestParam String action,
-            @RequestParam(required = false) String rejectionReason) {
-        BaseResponseDTO<String> response = toolRequestService.handleToolRequest(requestId, action, rejectionReason);
-        return ResponseEntity.ok(response);
-    }
 
     // Get pending requests for approval (Chief Supervisor & Manager)
     @GetMapping("/requests/pending")

@@ -6,6 +6,9 @@ import com.example.inventory_factory_management.dto.BaseRequestDTO;
 import com.example.inventory_factory_management.dto.BaseResponseDTO;
 import com.example.inventory_factory_management.dto.ToolCategoryDTO;
 import com.example.inventory_factory_management.entity.ToolCategory;
+import com.example.inventory_factory_management.exceptions.OperationNotPermittedException;
+import com.example.inventory_factory_management.exceptions.ResourceAlreadyExistsException;
+import com.example.inventory_factory_management.exceptions.ResourceNotFoundException;
 import com.example.inventory_factory_management.repository.ToolCategoryRepository;
 import com.example.inventory_factory_management.specifications.ToolCategorySpecifications;
 import com.example.inventory_factory_management.utils.PaginationUtil;
@@ -37,7 +40,7 @@ public class ToolCategoryService {
             BaseRequestDTO request,
             String search) {
 
-        try {
+//        try {
             Specification<ToolCategory> spec = ToolCategorySpecifications.withFilters(search);
 
             Pageable pageable = PaginationUtil.toPageable(request);
@@ -47,22 +50,23 @@ public class ToolCategoryService {
 
             return BaseResponseDTO.success("Tool categories retrieved successfully", categoryDTOsPage);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve tool categories: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to retrieve tool categories: " + e.getMessage());
+//        }
     }
 
 
     public BaseResponseDTO<ToolCategoryDTO> createToolCategory(AddToolCategoryDTO addToolCategoryDTO) {
-        try {
-            if (addToolCategoryDTO.getName() == null || addToolCategoryDTO.getName().trim().isEmpty()) {
-                return BaseResponseDTO.error("Tool category name is required");
-            }
+//        try {
+//            if (addToolCategoryDTO.getName() == null || addToolCategoryDTO.getName().trim().isEmpty()) {
+//                return BaseResponseDTO.error("Tool category name is required");
+//            }
 
             String categoryName = addToolCategoryDTO.getName().trim();
 
             if (toolCategoryRepository.existsByNameIgnoreCase(categoryName)) {
-                return BaseResponseDTO.error("Tool category with name '" + categoryName + "' already exists");
+//                return BaseResponseDTO.error("Tool category with name '" + categoryName + "' already exists");
+                throw new ResourceAlreadyExistsException("Tool category with name '" + categoryName + "' already exists");
             }
 
             ToolCategory category = convertToEntity(addToolCategoryDTO);
@@ -73,30 +77,27 @@ public class ToolCategoryService {
             ToolCategoryDTO savedCategoryDTO = convertToDTO(savedCategory);
             return BaseResponseDTO.success("Tool category created successfully", savedCategoryDTO);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to create tool category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to create tool category: " + e.getMessage());
+//        }
     }
 
 
     public BaseResponseDTO<ToolCategoryDTO> updateToolCategory(Long id, AddToolCategoryDTO addToolCategoryDTO) {
-        try {
-
-            // Validate input
+//        try {
             if (id == null || id <= 0) {
-                return BaseResponseDTO.error("Invalid tool category ID");
+//                return BaseResponseDTO.error("Invalid tool category ID");
+                throw new IllegalArgumentException("Invalid tool category ID");
             }
 
-            if (addToolCategoryDTO.getName() == null || addToolCategoryDTO.getName().trim().isEmpty()) {
-                return BaseResponseDTO.error("Tool category name is required");
-            }
 
             String categoryName = addToolCategoryDTO.getName().trim();
 
             Optional<ToolCategory> categoryOptional = toolCategoryRepository.findById(id);
 
             if (categoryOptional.isEmpty()) {
-                return BaseResponseDTO.error("Tool category not found with ID: " + id);
+//                return BaseResponseDTO.error("Tool category not found with ID: " + id);
+                throw new ResourceNotFoundException("Tool category not found with ID: " + id);
             }
 
             ToolCategory existingCategory = categoryOptional.get();
@@ -105,7 +106,8 @@ public class ToolCategoryService {
                 Optional<ToolCategory> duplicateCategory = toolCategoryRepository
                         .findByNameAndIdNot(categoryName, id);
                 if (duplicateCategory.isPresent()) {
-                    return BaseResponseDTO.error("Another tool category with name '" + categoryName + "' already exists");
+//                    return BaseResponseDTO.error("Another tool category with name '" + categoryName + "' already exists");
+                    throw new ResourceAlreadyExistsException("Another tool category with name '" + categoryName + "' already exists");
                 }
             }
 
@@ -118,37 +120,40 @@ public class ToolCategoryService {
 
             return BaseResponseDTO.success("Tool category updated successfully", updatedCategoryDTO);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to update tool category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to update tool category: " + e.getMessage());
+//        }
     }
 
 
     public BaseResponseDTO<Void> deleteToolCategory(Long id) {
-        try {
+//        try {
             if (id == null || id <= 0) {
-                return BaseResponseDTO.error("Invalid tool category ID");
+//                return BaseResponseDTO.error("Invalid tool category ID");
+                throw new IllegalArgumentException("Invalid tool category ID");
             }
 
             Optional<ToolCategory> categoryOptional = toolCategoryRepository.findById(id);
 
             if (categoryOptional.isEmpty()) {
-                return BaseResponseDTO.error("Tool category not found with ID: " + id);
+//                return BaseResponseDTO.error("Tool category not found with ID: " + id);
+                throw new ResourceNotFoundException("Tool category not found with ID: " + id);
             }
 
             ToolCategory category = categoryOptional.get();
 
             // Check if category has associated tools
             if (category.getTools() != null && !category.getTools().isEmpty()) {
-                return BaseResponseDTO.error("Cannot delete tool category as it has associated tools. Please remove the tools first.");
+//                return BaseResponseDTO.error("Cannot delete tool category as it has associated tools. Please remove the tools first.");
+                throw new OperationNotPermittedException("Cannot delete tool category as it has associated tools. Please remove the tools first.");
             }
 
             toolCategoryRepository.deleteById(id);
             return BaseResponseDTO.success("Tool category deleted successfully", null);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to delete tool category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to delete tool category: " + e.getMessage());
+//        }
     }
 
 

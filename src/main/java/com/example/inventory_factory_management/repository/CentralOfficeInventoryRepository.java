@@ -11,7 +11,7 @@ import java.util.Optional;
 @Repository
 public interface CentralOfficeInventoryRepository extends JpaRepository<CentralOfficeInventory, Long>
         ,JpaSpecificationExecutor<CentralOfficeInventory> {
-    Optional<CentralOfficeInventory> findByProduct(Product product);   //shouldn't be this
-    Optional<CentralOfficeInventory> findByProductId(Long productId);  //should be this
+    Optional<CentralOfficeInventory> findByProduct(Product product);
+    Optional<CentralOfficeInventory> findByProductId(Long productId);
     boolean existsByProduct(Product product);
 }

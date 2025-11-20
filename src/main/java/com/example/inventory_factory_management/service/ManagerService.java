@@ -6,8 +6,13 @@ import com.example.inventory_factory_management.constants.AccountStatus;
 import com.example.inventory_factory_management.entity.Factory;
 import com.example.inventory_factory_management.entity.User;
 import com.example.inventory_factory_management.entity.UserFactory;
+import com.example.inventory_factory_management.exceptions.OperationNotPermittedException;
+import com.example.inventory_factory_management.exceptions.ResourceNotFoundException;
+import com.example.inventory_factory_management.exceptions.UserAlreadyExistsException;
+import com.example.inventory_factory_management.exceptions.UserNotFoundException;
 import com.example.inventory_factory_management.repository.UserFactoryRepository;
 import com.example.inventory_factory_management.repository.UserRepository;
+import com.example.inventory_factory_management.specifications.UserSpecifications;
 import com.example.inventory_factory_management.utils.PaginationUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +24,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,6 +46,8 @@ public class ManagerService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     @Autowired
     private EmployeeService employeeService; // Reuse existing service
@@ -50,25 +58,10 @@ public class ManagerService {
     // Create a new manager
     @Transactional
     public BaseResponseDTO<UserDTO> createManager(UserDTO managerDTO) {
-        try {
-            // Validate input
-            if (managerDTO.getEmail() == null || managerDTO.getEmail().trim().isEmpty()) {
-                return BaseResponseDTO.error("Manager email is required");
-            }
-
-            if (managerDTO.getUsername() == null || managerDTO.getUsername().trim().isEmpty()) {
-                return BaseResponseDTO.error("Manager username is required");
-            }
 
             // Check if email already exists
             if (userRepository.findByEmail(managerDTO.getEmail()).isPresent()) {
-                return BaseResponseDTO.error("User with email '" + managerDTO.getEmail() + "' already exists");
-            }
-
-            // Check if username already exists for manager
-            Optional<User> existingManager = userRepository.findByUsernameAndRole(managerDTO.getUsername(), Role.MANAGER);
-            if (existingManager.isPresent()) {
-                return BaseResponseDTO.error("Manager with username '" + managerDTO.getUsername() + "' already exists");
+                throw new UserAlreadyExistsException("User with given email already exists");
             }
 
             // Create new manager
@@ -84,7 +77,7 @@ public class ManagerService {
             newManager.setStatus(AccountStatus.ACTIVE);
 
             // Generate password
-            String generatedPassword = generatePassword(managerDTO.getUsername(), managerDTO.getPhone());
+            String generatedPassword = managerDTO.getUsername().substring(0,3) + "@" + managerDTO.getPhone().substring(0,7);
             newManager.setPassword(passwordEncoder.encode(generatedPassword));
 
             newManager.setCreatedAt(LocalDateTime.now());
@@ -98,32 +91,30 @@ public class ManagerService {
             UserDTO responseDTO = convertToUserDTO(savedManager);
             return BaseResponseDTO.success("Manager created successfully", responseDTO);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to create manager: " + e.getMessage());
-        }
     }
 
 //    // Get all managers with pagination and filtering
     public BaseResponseDTO<Page<UserDTO>> getAllManagers(String search, String status, BaseRequestDTO request) {
         try {
-//            Pageable pageable = createPageable(request);
             Pageable pageable = PaginationUtil.toPageable(request);
-            // Build specification for filtering
-            Specification<User> spec = createRoleSpecification();
+            // Convert string status to enum
 
-            // Add search filter
-            if (search != null && !search.trim().isEmpty()) {
-                Specification<User> searchSpec = createSearchSpecification(search);
-                spec = spec.and(searchSpec);
-            }
-
-            // Add status filter
+            AccountStatus accountStatus = null;
             if (status != null && !status.trim().isEmpty()) {
-                Specification<User> statusSpec = createStatusSpecification(status);
-                if (statusSpec != null) {
-                    spec = spec.and(statusSpec);
+                try {
+                    accountStatus = AccountStatus.valueOf(status.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    System.out.println(e.getMessage());
                 }
             }
+
+            // Single method call for all filters
+            Specification<User> spec = UserSpecifications.withFilters(
+                    search,
+                    Role.MANAGER.name(), // role
+                    null, // factoryId
+                    accountStatus // status
+            );
 
             Page<User> managerPage = userRepository.findAll(spec, pageable);
             Page<UserDTO> dtoPage = managerPage.map(this::convertToUserDTO);
@@ -139,10 +130,11 @@ public class ManagerService {
     public BaseResponseDTO<UserDTO> getManagerById(Long managerId) {
         try {
             User manager = userRepository.findById(managerId)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found"));
 
             if (manager.getRole() != Role.MANAGER) {
                 return BaseResponseDTO.error("User is not a manager");
+//                throw new
             }
 
             UserDTO responseDTO = convertToUserDTO(manager);
@@ -153,11 +145,11 @@ public class ManagerService {
         }
     }
 
-    // Get manager by exact name
+    // Get manager by name
     public BaseResponseDTO<UserDTO> getManagerByName(String managerName) {
         try {
             User manager = userRepository.findByUsernameAndRole(managerName, Role.MANAGER)
-                    .orElseThrow(() -> new RuntimeException("Manager not found with name: " + managerName));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found with name: " + managerName));
 
             UserDTO responseDTO = convertToUserDTO(manager);
             return BaseResponseDTO.success("Manager retrieved successfully", responseDTO);
@@ -170,7 +162,6 @@ public class ManagerService {
 
     public BaseResponseDTO<Page<UserDTO>> searchManagersByName(String managerName, BaseRequestDTO request) {
         try {
-//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
             // Search for managers with username containing the search term
@@ -191,10 +182,10 @@ public class ManagerService {
 
     // Update manager details
     @Transactional
-    public BaseResponseDTO<UserDTO> updateManager(Long managerId, UserUpdateDTO managerDTO) {
+    public BaseResponseDTO<UserDTO> updateManager(Long managerId, UserUpdateDTO managerDTO, MultipartFile imageFile) {
         try {
             User manager = userRepository.findById(managerId)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found"));
 
             if (manager.getRole() != Role.MANAGER) {
                 return BaseResponseDTO.error("User is not a manager");
@@ -203,16 +194,17 @@ public class ManagerService {
             // Update fields if provided
             if (managerDTO.getUsername() != null && !managerDTO.getUsername().trim().isEmpty()) {
                 // Check if new username already exists for another manager
-                Optional<User> existingManager = userRepository.findByUsernameAndRole(managerDTO.getUsername(), Role.MANAGER);
-                if (existingManager.isPresent() && !existingManager.get().getUserId().equals(managerId)) {
-                    return BaseResponseDTO.error("Manager with username '" + managerDTO.getUsername() + "' already exists");
-                }
+//                Optional<User> existingManager = userRepository.findByUsernameAndRole(managerDTO.getUsername(), Role.MANAGER);
+//                if (existingManager.isPresent() && !existingManager.get().getUserId().equals(managerId)) {
+//                    return BaseResponseDTO.error("Manager with username '" + managerDTO.getUsername() + "' already exists");
+//                }
                 manager.setUsername(managerDTO.getUsername());
             }
 
             if (managerDTO.getEmail() != null && !managerDTO.getEmail().equals(manager.getEmail())) {
                 if (userRepository.findByEmail(managerDTO.getEmail()).isPresent()) {
-                    return BaseResponseDTO.error("Email already exists");
+//                    return BaseResponseDTO.error("Email already exists");
+                    throw new UserAlreadyExistsException("User email already exists");
                 }
                 manager.setEmail(managerDTO.getEmail());
             }
@@ -221,8 +213,12 @@ public class ManagerService {
                 manager.setPhone(Long.parseLong(managerDTO.getPhone()));
             }
 
-            if (managerDTO.getImg() != null) {
-                manager.setImg(managerDTO.getImg());
+//            if (managerDTO. != null) {
+//                manager.setImg(managerDTO.getImg());
+//            }
+            if (imageFile != null && !imageFile.isEmpty()) {
+                String imageUrl = cloudinaryService.uploadFile(imageFile);
+                manager.setImg(imageUrl);
             }
 
             manager.setUpdatedAt(LocalDateTime.now());
@@ -241,7 +237,7 @@ public class ManagerService {
     public BaseResponseDTO<String> deleteManager(Long managerId) {
         try {
             User manager = userRepository.findById(managerId)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found"));
 
             if (manager.getRole() != Role.MANAGER) {
                 return BaseResponseDTO.error("User is not a manager");
@@ -253,7 +249,8 @@ public class ManagerService {
                     .anyMatch(uf -> uf.getFactory().getStatus() == AccountStatus.ACTIVE);
 
             if (hasActiveFactories) {
-                return BaseResponseDTO.error("Cannot delete manager who is assigned to active factories. Please reassign factories first.");
+//                return BaseResponseDTO.error("Cannot delete manager who is assigned to active factories. Please reassign factories first.");
+                throw new OperationNotPermittedException("Cannot delete manager who is assigned to active factories. Please reassign factories first.");
             }
 
             // Soft delete manager
@@ -273,15 +270,14 @@ public class ManagerService {
     public BaseResponseDTO<String> toggleManagerStatus(Long managerId) {
         try {
             User manager = userRepository.findById(managerId)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found"));
 
             if (manager.getRole() != Role.MANAGER) {
                 return BaseResponseDTO.error("User is not a manager");
             }
 
             // Toggle status
-            AccountStatus newStatus = (manager.getStatus() == AccountStatus.ACTIVE)
-                    ? AccountStatus.INACTIVE
+            AccountStatus newStatus = (manager.getStatus() == AccountStatus.ACTIVE) ? AccountStatus.INACTIVE
                     : AccountStatus.ACTIVE;
 
             manager.setStatus(newStatus);
@@ -299,27 +295,12 @@ public class ManagerService {
     // Get available managers (without factory assignment or with inactive factories only)
     public BaseResponseDTO<Page<UserDTO>> getAvailableManagers(BaseRequestDTO request) {
         try {
-//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
-            // Get all active managers
-            Specification<User> spec = createRoleSpecification().and(createStatusSpecification("ACTIVE"));
-            Page<User> activeManagers = userRepository.findAll(spec, pageable);
+            Page<User> availableManagers = userRepository.findAll(
+                    UserSpecifications.availableManagers(), pageable);
 
-            // Filter managers who are not assigned to any active factory
-            List<User> availableManagers = activeManagers.getContent().stream()
-                    .filter(manager -> {
-                        List<UserFactory> managerFactories = userFactoryRepository.findByUser(manager);
-                        return managerFactories.stream()
-                                .noneMatch(uf -> uf.getFactory().getStatus() == AccountStatus.ACTIVE);
-                    })
-                    .collect(Collectors.toList());
-
-            Page<UserDTO> dtoPage = new org.springframework.data.domain.PageImpl<>(
-                    availableManagers.stream().map(this::convertToUserDTO).collect(Collectors.toList()),
-                    pageable,
-                    availableManagers.size()
-            );
+            Page<UserDTO> dtoPage = availableManagers.map(this::convertToUserDTO);
 
             return BaseResponseDTO.success("Available managers retrieved successfully", dtoPage);
 
@@ -328,33 +309,8 @@ public class ManagerService {
         }
     }
 
-    // Helper methods for specifications
-    private Specification<User> createRoleSpecification() {
-        return (root, query, cb) -> cb.equal(root.get("role"), Role.MANAGER);
-    }
-
-    private Specification<User> createSearchSpecification(String search) {
-        return (root, query, cb) ->
-                cb.or(
-                        cb.like(cb.lower(root.get("username")), "%" + search.toLowerCase() + "%"),
-                        cb.like(cb.lower(root.get("email")), "%" + search.toLowerCase() + "%")
-                );
-    }
-
-    private Specification<User> createStatusSpecification(String status) {
-        try {
-            AccountStatus accountStatus = AccountStatus.valueOf(status.toUpperCase());
-            return (root, query, cb) -> cb.equal(root.get("status"), accountStatus);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
 
 
-    private String generatePassword(String username, String phone) {
-        String phonePart = phone != null ? phone.substring(0, Math.min(7, phone.length())) : "1234567";
-        return username.substring(0, Math.min(3, username.length())) + "@" + phonePart;
-    }
 
     private void sendManagerWelcomeEmail(User manager, String password) {
         try {
@@ -380,13 +336,14 @@ public class ManagerService {
         try {
             String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
             User currentManager = userRepository.findByEmail(currentUsername)
-                    .orElseThrow(() -> new RuntimeException("Manager not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Manager not found"));
 
             Optional<UserFactory> managerFactoryRelation = userFactoryRepository
                     .findByUserAndUserRoleAndStatus(currentManager, Role.MANAGER, AccountStatus.ACTIVE);
 
             if (managerFactoryRelation.isEmpty()) {
-                return BaseResponseDTO.error("No factory assigned to this manager");
+//                return BaseResponseDTO.error("No factory assigned to this manager");
+                throw new ResourceNotFoundException("No factory assigned to this manager");
             }
 
             Factory managerFactory = managerFactoryRelation.get().getFactory();

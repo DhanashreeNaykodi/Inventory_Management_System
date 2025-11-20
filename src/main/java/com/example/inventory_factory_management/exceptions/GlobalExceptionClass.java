@@ -2,14 +2,19 @@ package com.example.inventory_factory_management.exceptions;
 
 
 import com.example.inventory_factory_management.dto.BaseResponseDTO;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.UnexpectedTypeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,6 +22,71 @@ import java.util.stream.Collectors;
 @ControllerAdvice
 public class GlobalExceptionClass {
 
+    // Validation errors for @RequestParam, @ValidImage, etc.
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<BaseResponseDTO> handleConstraintViolation(ConstraintViolationException ex) {
+
+        String message = ex.getConstraintViolations()
+                .iterator()
+                .next()
+                .getMessage();
+
+        BaseResponseDTO error = new BaseResponseDTO(
+                false,
+                "VALIDATION_FAILED",
+                message,
+                null,
+                LocalDateTime.now().toString()
+        );
+
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UnexpectedTypeException.class)
+    public ResponseEntity<BaseResponseDTO> handleUnexpectedTypeException(UnexpectedTypeException ex) {
+        BaseResponseDTO error = new BaseResponseDTO(
+                false,
+                "VALIDATION_ANNOTATION_MISCONFIGURED",
+                "Validation failed",
+                null,
+                LocalDateTime.now().toString()
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<BaseResponseDTO> handleValidationException(MethodArgumentNotValidException ex) {
+
+        String errorMessage = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElse("Invalid input");
+
+        BaseResponseDTO error = new BaseResponseDTO(
+                false,
+                "VALIDATION_ERROR",
+                errorMessage,
+                null,
+                LocalDateTime.now().toString()
+        );
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<BaseResponseDTO> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
+        BaseResponseDTO error = new BaseResponseDTO(
+                false,
+                "USER_ALREADY_PRESENT",
+                ex.getMessage(),
+                null,
+                LocalDateTime.now().toString()
+        );
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
 
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<BaseResponseDTO> handleUserNotFoundException(UserNotFoundException ex) {
@@ -26,7 +96,6 @@ public class GlobalExceptionClass {
                 ex.getMessage(),
                 null,
                 LocalDateTime.now().toString()
-//                HttpStatus.NOT_FOUND.value()
         );
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
@@ -104,37 +173,7 @@ public class GlobalExceptionClass {
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
-    // Handle Validation Exceptions
-//    @ExceptionHandler(MethodArgumentNotValidException.class)
-//    public ResponseEntity<BaseResponseDTO> handleValidationExceptions(MethodArgumentNotValidException ex) {
-//        String errorMessage = ex.getBindingResult()
-//                .getFieldErrors()
-//                .stream()
-//                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-//                .collect(Collectors.joining(", "));
-//
-//        BaseResponseDTO error = new BaseResponseDTO(
-//                false,
-//                "VALIDATION_ERROR",
-//                ex.getMessage(),
-//                null,
-//                LocalDateTime.now().toString()
-//        );
-//        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
-//    }
 
-    // Handle all other exceptions
-//    @ExceptionHandler(Exception.class)
-//    public ResponseEntity<BaseResponseDTO> handleGenericException(Exception ex) {
-//        BaseResponseDTO error = new BaseResponseDTO(
-//                false,
-//                "INTERNAL_SERVER_ERROR",
-//                "An unexpected error occurred",
-//                null,
-//                LocalDateTime.now().toString()
-//        );
-//        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
-//    }
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<BaseResponseDTO> handleResourceNotFoundException(ResourceNotFoundException ex) {
         BaseResponseDTO error = new BaseResponseDTO(
@@ -159,6 +198,20 @@ public class GlobalExceptionClass {
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException ex, WebRequest request) {
+
+        Map<String, Object> errorResponse = new LinkedHashMap<>();
+        errorResponse.put("timestamp", LocalDateTime.now());
+        errorResponse.put("status", HttpStatus.METHOD_NOT_ALLOWED.value());
+        errorResponse.put("error", HttpStatus.METHOD_NOT_ALLOWED.getReasonPhrase());
+        errorResponse.put("message", "HTTP method '" + ex.getMethod() + "' is not supported for this endpoint. Supported methods: " +
+                (ex.getSupportedHttpMethods() != null ? ex.getSupportedHttpMethods() : "None"));
+        errorResponse.put("path", request.getDescription(false).replace("uri=", ""));
+
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(errorResponse);
+    }
 
 //    @ExceptionHandler(MethodArgumentNotValidException.class)
 //    public ResponseEntity<BaseResponseDTO<?>> handleValidationExceptions(MethodArgumentNotValidException ex) {

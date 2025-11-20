@@ -1,6 +1,9 @@
 package com.example.inventory_factory_management.service;
 
 import com.example.inventory_factory_management.dto.*;
+import com.example.inventory_factory_management.exceptions.OperationNotPermittedException;
+import com.example.inventory_factory_management.exceptions.ResourceAlreadyExistsException;
+import com.example.inventory_factory_management.exceptions.ResourceNotFoundException;
 import com.example.inventory_factory_management.specifications.ProductCategorySpecifications;
 import com.example.inventory_factory_management.specifications.ProductSpecifications;
 import com.example.inventory_factory_management.constants.AccountStatus;
@@ -46,18 +49,13 @@ public class ProductService {
     public BaseResponseDTO<ProductDTO> createProduct(ProductDTO productDTO) {
 //        try {
 
-        if (productDTO.getName() == null || productDTO.getName().trim().isEmpty()) {
-            return BaseResponseDTO.error("Product name is required");
-        }
-        if (productDTO.getCategoryId() == null) {
-            return BaseResponseDTO.error("Category ID is required");
-        }
         if (productRepository.existsByNameIgnoreCase(productDTO.getName())) {
-            return BaseResponseDTO.error("Product with name '" + productDTO.getName() + "' already exists");
+//            return BaseResponseDTO.error("Product with name '" + productDTO.getName() + "' already exists");
+            throw new ResourceAlreadyExistsException("Product with name '" + productDTO.getName() + "' already exists");
         }
 
         ProductCategory category = productCategoryRepository.findById(productDTO.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found with id: " + productDTO.getCategoryId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + productDTO.getCategoryId()));
 
         Product newProduct = new Product();
         newProduct.setName(productDTO.getName());
@@ -89,12 +87,11 @@ public class ProductService {
 
 
     public BaseResponseDTO<?> uploadProductImage(Long productId, MultipartFile imageFile) {
-        try {
             Product existingProduct = productRepository.findById(productId)
-                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + productId));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
 
             if (imageFile == null || imageFile.isEmpty()) {
-                return BaseResponseDTO.error("Image file is required");
+                throw new IllegalArgumentException("Image file is required");
             }
             String imageUrl = cloudinaryService.uploadFile(imageFile);
             existingProduct.setImage(imageUrl);
@@ -103,28 +100,20 @@ public class ProductService {
             productRepository.save(existingProduct);
             return BaseResponseDTO.success("Product image uploaded successfully");
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to upload product image: " + e.getMessage());
-        }
     }
 
 
     public BaseResponseDTO<ProductDTO> getProductDetail(Long id) {
-        try {
             Product product = productRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
             return BaseResponseDTO.success(convertToDTO(product));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get product details: " + e.getMessage());
-        }
     }
 
 
     @Transactional
     public BaseResponseDTO<ProductDTO> deactivateProduct(Long id) {
-        try {
             Product product = productRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
             product.setStatus(AccountStatus.INACTIVE);
             product.setUpdatedAt(LocalDateTime.now());
@@ -132,32 +121,29 @@ public class ProductService {
             Product updatedProduct = productRepository.save(product);
 
             return BaseResponseDTO.success("Product deactivated successfully", convertToDTO(updatedProduct));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to deactivate product: " + e.getMessage());
-        }
     }
 
+
     public BaseResponseDTO<ProductDTO> updateProduct(Long id, ProductDTO productDTO) {
-        try {
             Product existingProduct = productRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
-            if (productDTO.getImage() != null) {
-                existingProduct.setImage(productDTO.getImage());
-            }
-
-            if (productDTO.getName() != null && !productRepository.existsByNameIgnoreCase(productDTO.getName())) {
+            // Name validation: Check if name exists for OTHER products
+            if (productDTO.getName() != null && !productDTO.getName().equals(existingProduct.getName())) {
+                boolean nameExists = productRepository.existsByNameIgnoreCaseAndIdNot(productDTO.getName(), id);
+                if (nameExists) {
+                    throw new OperationNotPermittedException("Product name '" + productDTO.getName() + "' already exists");
+                }
                 existingProduct.setName(productDTO.getName());
             }
-            else if(productRepository.existsByNameIgnoreCase(productDTO.getName())) {
-                throw new RuntimeException("Product name already exists");
-            }
+
+
             if (productDTO.getProdDescription() != null) existingProduct.setProdDescription(productDTO.getProdDescription());
             if (productDTO.getPrice() != null) existingProduct.setPrice(productDTO.getPrice());
             if (productDTO.getRewardPts() != null) existingProduct.setRewardPts(productDTO.getRewardPts());
             if (productDTO.getCategoryId() != null) {
                 ProductCategory category = productCategoryRepository.findById(productDTO.getCategoryId())
-                        .orElseThrow(() -> new RuntimeException("Category not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
                 existingProduct.setCategory(category);
             }
 
@@ -165,9 +151,6 @@ public class ProductService {
             Product updatedProduct = productRepository.save(existingProduct);
 
             return BaseResponseDTO.success("Product updated successfully", convertToDTO(updatedProduct));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to update product: " + e.getMessage());
-        }
     }
 
     private ProductDTO convertToDTO(Product p) {
@@ -191,8 +174,6 @@ public class ProductService {
 
     // Get all products with filtering and searching
     public BaseResponseDTO<Page<ProductDTO>> getAllProducts(BaseRequestDTO request, String search, Long categoryId, String status) {
-        try {
-
             if (categoryId != null) {
                 boolean categoryExists = productCategoryRepository.existsById(categoryId);
                 if (!categoryExists) {
@@ -220,22 +201,16 @@ public class ProductService {
 
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Products retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve products: " + e.getMessage());
-        }
+
     }
 
 
     /// / PRODUCT CATEGORY
 
     public BaseResponseDTO<CategoryDTO> createCategory(CategoryDTO categoryDTO) {
-        try {
-            if (categoryDTO.getCategoryName() == null || categoryDTO.getCategoryName().trim().isEmpty()) {
-                return BaseResponseDTO.error("Category name is required");
-            }
 
             if (productCategoryRepository.existsByCategoryName(categoryDTO.getCategoryName())) {
-                return BaseResponseDTO.error("Category with name '" + categoryDTO.getCategoryName() + "' already exists");
+                throw new ResourceAlreadyExistsException("Category with name '" + categoryDTO.getCategoryName() + "' already exists");
             }
 
             ProductCategory category = new ProductCategory();
@@ -245,63 +220,65 @@ public class ProductService {
             // Save category
             ProductCategory savedCategory = productCategoryRepository.save(category);
             return BaseResponseDTO.success("Category created successfully", convertToDTO(savedCategory));
-        }
-        catch (Exception e) {
-            return BaseResponseDTO.error("Failed to create category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to create category: " + e.getMessage());
+//        }
     }
 
     // GET ALL CATEGORIES
     public BaseResponseDTO<Page<CategoryDTO>> getAllCategories(Pageable pageable) {
-        try {
+//        try {
             Page<ProductCategory> categoryPage = productCategoryRepository.findAll(pageable);
             Page<CategoryDTO> dtoPage = categoryPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Categories retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
+//        }
     }
 
 
     public BaseResponseDTO<CategoryDTO> getCategoryById(Long id) {
-        try {
+//        try {
             ProductCategory category = productCategoryRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
             return BaseResponseDTO.success(convertToDTO(category));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to get category: " + e.getMessage());
+//        }
     }
 
     // Get category by name
     public BaseResponseDTO<CategoryDTO> getCategoryByName(String categoryName) {
-        try {
-            if (categoryName == null || categoryName.trim().isEmpty()) {
-                return BaseResponseDTO.error("Category name is required");
-            }
+//        try {
+//            if (categoryName == null || categoryName.trim().isEmpty()) {
+//                return BaseResponseDTO.error("Category name is required");
+//            }
 
             Optional<ProductCategory> category = productCategoryRepository.findByCategoryNameContainingIgnoreCase(categoryName);
 
             if (category.isEmpty()) {
-                return BaseResponseDTO.error("Category not found with name: " + categoryName);
+//                return BaseResponseDTO.error("Category not found with name: " + categoryName);
+                throw new ResourceNotFoundException("Category not found with name: " + categoryName);
             }
 
             return BaseResponseDTO.success("Category retrieved successfully", convertToDTO(category.get()));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to get category: " + e.getMessage());
+//        }
     }
 
     public BaseResponseDTO<CategoryDTO> updateCategory(Long id, CategoryDTO categoryDTO) {
-        try {
+//        try {
             ProductCategory existingCategory = productCategoryRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
 
             //if new name conflicts with other categories
             if (categoryDTO.getCategoryName() != null &&
                     !existingCategory.getCategoryName().equalsIgnoreCase(categoryDTO.getCategoryName()) &&
                     productCategoryRepository.existsByCategoryNameIgnoreCase(categoryDTO.getCategoryName())) {
-                return BaseResponseDTO.error("Category with name '" + categoryDTO.getCategoryName() + "' already exists");
+
+                throw new ResourceAlreadyExistsException("Category with name '" + categoryDTO.getCategoryName() + "' already exists");
+//                return BaseResponseDTO.error("Category with name '" + categoryDTO.getCategoryName() + "' already exists");
             }
 
             if (categoryDTO.getCategoryName() != null) {
@@ -313,34 +290,35 @@ public class ProductService {
 
             ProductCategory updatedCategory = productCategoryRepository.save(existingCategory);
             return BaseResponseDTO.success("Category updated successfully", convertToDTO(updatedCategory));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to update category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to update category: " + e.getMessage());
+//        }
     }
 
     @Transactional
     public BaseResponseDTO<String> deleteCategory(Long id) {
-        try {
+//        try {
             ProductCategory category = productCategoryRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
 
             // Check if category has products
             if (category.getProducts() != null && !category.getProducts().isEmpty()) {
-                return BaseResponseDTO.error("Cannot delete category with existing products");
+//                return BaseResponseDTO.error("Cannot delete category with existing products");
+                throw new OperationNotPermittedException("Cannot delete category with existing products");
             }
 
 //            productCategoryRepository.delete(category);
             category.setStatus(AccountStatus.INACTIVE);
             productCategoryRepository.save(category);
             return BaseResponseDTO.success("Category deleted successfully");
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to delete category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to delete category: " + e.getMessage());
+//        }
     }
 
     // Get all categories with filtering and searching
     public BaseResponseDTO<Page<CategoryDTO>> getAllCategories(Pageable pageable, String search, String status) {
-        try {
+//        try {
 
             AccountStatus accountStatus = null;
             if (status != null && !status.isBlank()) {
@@ -361,38 +339,38 @@ public class ProductService {
 
             Page<CategoryDTO> dtoPage = categoryPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Categories retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
+//        }
     }
 
 
 
     // Search categories by name
     public BaseResponseDTO<List<CategoryDTO>> searchCategoriesByName(String search) {
-        try {
+//        try {
             Specification<ProductCategory> spec = ProductCategorySpecifications.withFilters(search, AccountStatus.ACTIVE);
             List<ProductCategory> categories = productCategoryRepository.findAll(spec);
             List<CategoryDTO> categoryDTOs = categories.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
             return BaseResponseDTO.success("Categories search completed successfully", categoryDTOs);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to search categories: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to search categories: " + e.getMessage());
+//        }
     }
 
     // GET ALL CATEGORIES
     public BaseResponseDTO<List<CategoryDTO>> getAllCategoriesList() {
-        try {
+//        try {
             List<ProductCategory> categories = productCategoryRepository.findAll();
             List<CategoryDTO> categoryDTOs = categories.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
             return BaseResponseDTO.success("Categories retrieved successfully", categoryDTOs);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to retrieve categories: " + e.getMessage());
+//        }
     }
 
     // HELPER METHOD
@@ -416,7 +394,7 @@ public class ProductService {
 
     // Search products by name with pagination
     public BaseResponseDTO<Page<ProductDTO>> searchProductsByName(String search, BaseRequestDTO request) {
-        try {
+//        try {
 //            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
@@ -424,14 +402,14 @@ public class ProductService {
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Products search completed successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to search products: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to search products: " + e.getMessage());
+//        }
     }
 
     // Get products by category
     public BaseResponseDTO<Page<ProductDTO>> getProductsByCategory(Long categoryId, BaseRequestDTO request) {
-        try {
+//        try {
 //            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
@@ -439,18 +417,15 @@ public class ProductService {
             Page<Product> productPage = productRepository.findAll(spec, pageable);
             Page<ProductDTO> dtoPage = productPage.map(this::convertToDTO);
             return BaseResponseDTO.success("Products retrieved by category successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve products by category: " + e.getMessage());
-        }
+//        } catch (Exception e) {
+//            return BaseResponseDTO.error("Failed to retrieve products by category: " + e.getMessage());
+//        }
     }
 
 
 
-
-
-
     public BaseResponseDTO<Page<CategoryProductCountDTO>> getCategoryWiseProductCounts(BaseRequestDTO request) {
-        try {
+//        try {
             Pageable pageable = PaginationUtil.toPageable(request, "categoryName");
 
             Page<Object[]> results = productCategoryRepository.getCategoryWiseProductCounts(pageable);
@@ -466,18 +441,13 @@ public class ProductService {
 
             return BaseResponseDTO.success("Category product counts retrieved successfully", resultPage);
 
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Error retrieving category product counts: " + e.getMessage());
-        }
     }
 
     public BaseResponseDTO<CountResponseDTO> getProductsCount() {
-        try {
+
             long count = productRepository.count();
             return BaseResponseDTO.success(CountResponseDTO.of(count, "products"));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get product count: " + e.getMessage());
-        }
+
     }
 
 }

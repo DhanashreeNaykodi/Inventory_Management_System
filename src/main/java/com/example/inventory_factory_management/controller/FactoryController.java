@@ -43,7 +43,7 @@ public class FactoryController {
 
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/createFactory")
-    public ResponseEntity<BaseResponseDTO<FactoryDTO>> createFactory(@RequestBody FactoryDTO factoryDTO) {
+    public ResponseEntity<BaseResponseDTO<FactoryDTO>> createFactory(@Valid @RequestBody FactoryDTO factoryDTO) {
         BaseResponseDTO<FactoryDTO> response = factoryService.createFactory(factoryDTO);
         return ResponseEntity.ok(response);
     }
@@ -92,7 +92,7 @@ public class FactoryController {
     @PatchMapping("/factories/{factory_id}/manager")
     public ResponseEntity<BaseResponseDTO<FactoryDTO>> updateFactoryManager(
             @PathVariable Long factory_id,
-            @Valid @RequestBody ManagerUpdateRequest request) {
+            @RequestBody ManagerUpdateRequest request) {
         BaseResponseDTO<FactoryDTO> response = factoryService.updateFactoryManager(factory_id, request);
         return ResponseEntity.ok(response);
     }

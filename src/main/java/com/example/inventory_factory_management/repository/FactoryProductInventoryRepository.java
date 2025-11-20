@@ -18,7 +18,7 @@ import java.util.Optional;
 public interface FactoryProductInventoryRepository extends JpaRepository<FactoryProductInventory, Long> {
     Optional<FactoryProductInventory> findByFactoryAndProduct(Factory factory, Product product);
 
-    // Get factory-wise product counts with details (PAGINATED)
+    // Get factory-wise product counts with details
     @Query("SELECT f.factoryId, f.name as factoryName, p.id, p.name as productName, COALESCE(SUM(fpi.qty), 0) as productCount " +
             "FROM Factory f " +
             "CROSS JOIN Product p " +

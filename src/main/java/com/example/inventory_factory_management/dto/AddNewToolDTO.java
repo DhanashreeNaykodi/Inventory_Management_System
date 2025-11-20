@@ -31,10 +31,10 @@ public class AddNewToolDTO {
     @Positive(message = "Category ID must be positive")
     private Long categoryId;
 
-    @NotNull(message = "Tool type is required")
+//    @NotNull(message = "Tool type is required")
     private ToolType type;
 
-    @NotNull(message = "Expensive flag is required")
+//    @NotNull(message = "Expensive flag is required")
     private Expensive isExpensive;
 
     @NotNull(message = "Threshold is required")

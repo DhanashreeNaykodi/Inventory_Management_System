@@ -101,7 +101,6 @@ public class SecurityUtil {
 //            List<userFactory> userFactories = userFactoryRepository.findByUserId(currentUser.getId());
             List<UserFactory> userFactories = userFactoryRepository.findByUser(currentUser);
             if (!userFactories.isEmpty()) {
-//                return userFactories.get(0).getFactory().getId(); // Assuming one factory per manager
                 return userFactories.get(0).getFactory().getFactoryId();
             }
         }
@@ -110,11 +109,16 @@ public class SecurityUtil {
 
 
 
+
+
+
+
+
     public void sendWelcomeEmail(User user, String password) {
         try {
             String subject = "Welcome to Inventory Factory Management System - Manager Account Created";
             String message = "Dear " + user.getUsername() + ",\n\n" +
-                    "Your manager account has been created successfully.\n\n" +
+                    "Your account has been created successfully.\n\n" +
                     "Your Login Credentials:\n" +
                     "Email: " + user.getEmail() + "\n" +
                     "Password: " + password + "\n\n" +
@@ -124,26 +128,6 @@ public class SecurityUtil {
                     "Inventory Factory Management Team";
 
             emailService.sendEmail(user.getEmail(), subject, message);
-        } catch (Exception e) {
-            System.err.println("Failed to send welcome email: " + e.getMessage());
-        }
-    }
-
-    private void sendWelcomeEmail2(User centralOfficer, String password) {
-        try {
-            String subject = "Welcome Central Officer - Inventory Management System";
-            String message = "Dear " + centralOfficer.getUsername() + ",\n\n" +
-                    "Welcome to the Inventory Factory Management System as a Central Officer!\n\n" +
-                    "Your account has been created successfully.\n\n" +
-                    "Your Login Credentials:\n" +
-                    "Email: " + centralOfficer.getEmail() + "\n" +
-                    "Password: " + password + "\n\n" +
-                    "Please login and change your password immediately.\n\n" +
-                    "Login URL: http://localhost:8080/auth/login\n\n" +
-                    "Best regards,\n" +
-                    "Inventory Factory Management Team";
-
-            emailService.sendEmail(centralOfficer.getEmail(), subject, message);
         } catch (Exception e) {
             System.err.println("Failed to send welcome email: " + e.getMessage());
         }

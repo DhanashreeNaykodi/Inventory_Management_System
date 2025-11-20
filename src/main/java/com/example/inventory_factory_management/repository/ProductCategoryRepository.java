@@ -13,9 +13,14 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+
 @Repository
 public interface ProductCategoryRepository extends JpaRepository<ProductCategory, Long>, JpaSpecificationExecutor<ProductCategory> {
+
+
     boolean existsByCategoryName(String categoryName);
+
+
     boolean existsByCategoryNameIgnoreCase(String categoryName);
 
 
@@ -25,8 +30,6 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     // Find categories by name containing (case-insensitive)
     Optional<ProductCategory> findByCategoryNameContainingIgnoreCase(String categoryName);
 
-    // NEW: Find active category by exact name
-    Optional<ProductCategory> findByCategoryNameAndStatus(String categoryName, AccountStatus status);
 
 
     // Get category-wise product counts with pagination

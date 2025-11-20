@@ -21,24 +21,22 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     Page<User> findByRole(Role role, Pageable pageable);
 
 
-    //coz user entity does not have direct field of factory id...
-    // Method to find users by factory using a JOIN query
-//    @Query("SELECT u FROM User u JOIN u.UserFactories uf WHERE uf.factory.factoryId = :factoryId")
 
-    @Query("SELECT u FROM User u JOIN u.userFactories uf WHERE uf.factory.factoryId = :factoryId")
-    List<User> findUsersByFactoryId(@Param("factoryId") Long factoryId);
+    List<User> findByUserFactories_Factory_FactoryId(Long factoryId);
 
-    // Method to find users by factory and role
-//    @Query("SELECT u FROM User u JOIN u.UserFactories uf WHERE uf.factory.factoryId = :factoryId AND u.role = :role")
-    @Query("SELECT u FROM User u JOIN u.userFactories uf WHERE uf.factory.factoryId = :factoryId AND u.role = :role")
-    List<User> findUsersByFactoryIdAndRole(@Param("factoryId") Long factoryId, @Param("role") Role role);
 
     boolean existsByEmail(String centralOfficerEmail);
 
     // Find name by exact name and role
     Optional<User> findByUsernameAndRole(String username, Role role);
 
+
+
+
     List<User> findByUsernameContainingIgnoreCaseAndRole(String username, Role role);
+
+
+
 
     Optional<User> findByPhone(@Pattern(regexp = "^(\\+91|0)?[6-9]\\d{9}$",
             message = "Enter a valid Indian mobile number") Long phone);

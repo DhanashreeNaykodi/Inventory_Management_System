@@ -2,12 +2,14 @@ package com.example.inventory_factory_management.controller;
 
 import com.example.inventory_factory_management.dto.*;
 import com.example.inventory_factory_management.service.ManagerService;
+import com.example.inventory_factory_management.validations.ValidImage;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/owner/managers")
@@ -19,7 +21,7 @@ public class OwnerController {
     // Create a new manager
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/create")
-    public ResponseEntity<BaseResponseDTO<UserDTO>> createManager(@RequestBody UserDTO managerDTO) {
+    public ResponseEntity<BaseResponseDTO<UserDTO>> createManager(@Valid @RequestBody UserDTO managerDTO) {
         BaseResponseDTO<UserDTO> response = managerService.createManager(managerDTO);
         return ResponseEntity.ok(response);
     }
@@ -62,14 +64,42 @@ public class OwnerController {
     }
 
     // Update manager details
+    //    manager should update his own details? or owner or both?
+
+//    @PreAuthorize("hasRole('OWNER')")
+//    @PutMapping("/{managerId}")
+//    public ResponseEntity<BaseResponseDTO<UserDTO>> updateManager(
+//            @PathVariable Long managerId,
+//            @RequestBody UserUpdateDTO managerDTO) {
+//        BaseResponseDTO<UserDTO> response = managerService.updateManager(managerId, managerDTO);
+//        return ResponseEntity.ok(response);
+//    }
+
     @PreAuthorize("hasRole('OWNER')")
     @PutMapping("/{managerId}")
     public ResponseEntity<BaseResponseDTO<UserDTO>> updateManager(
             @PathVariable Long managerId,
-            @RequestBody UserUpdateDTO managerDTO) {
-        BaseResponseDTO<UserDTO> response = managerService.updateManager(managerId, managerDTO);
+            @RequestParam(value = "username", required = false) String username,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "phone", required = false) String phone,
+
+            @ValidImage
+            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
+
+        UserUpdateDTO managerDTO = new UserUpdateDTO();
+        if (username != null && !username.trim().isEmpty()) {
+            managerDTO.setUsername(username.trim());
+        }
+        if (email != null && !email.trim().isEmpty()) {
+            managerDTO.setEmail(email.trim());
+        }
+        if (phone != null && !phone.trim().isEmpty()) {
+            managerDTO.setPhone(phone.trim());
+        }
+        BaseResponseDTO<UserDTO> response = managerService.updateManager(managerId, managerDTO, profileImage);
         return ResponseEntity.ok(response);
     }
+
 
     // Delete manager (soft delete)
     @PreAuthorize("hasRole('OWNER')")
