@@ -96,8 +96,7 @@ public class ToolService {
     }
 
     public BaseResponseDTO<ToolResponseDTO> getToolById(Long id) {
-            Tool tool = toolRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Tool not found"));
+            Tool tool = toolRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Tool not found"));
             return BaseResponseDTO.success("Tool retrieved successfully", convertToDTO(tool));
     }
 
@@ -162,14 +161,12 @@ public class ToolService {
             if (!currentUser.getRole().name().equals("MANAGER")) {
                 throw new UnauthorizedAccessException("Only MANAGER can add tools to factory stock");
             }
-            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory)
-                    .orElse(null);
+            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory).orElse(null);
 
             if (factory == null) {
                 throw new ResourceNotFoundException("Factory not found for current user");
             }
 
-            // Validate all tools exist, quantities are positive, and storage locations exist
             for (int i = 0; i < requestDTO.getTool_ids().size(); i++) {
                 Long toolId = requestDTO.getTool_ids().get(i);
                 Integer quantity = requestDTO.getQuantities().get(i);
@@ -182,7 +179,6 @@ public class ToolService {
                 }
                 String fullLocationCode = "F" + factory.getFactoryId() + "_" + storageLocation;
 
-                // Validate storage location exists with the full code
                 Optional<StorageArea> storageArea = storageAreaRepository.findByLocationCode(fullLocationCode);
                 if (storageArea.isEmpty()) {
                     throw new ResourceNotFoundException("Storage location not found: " + storageLocation);
@@ -254,8 +250,7 @@ public class ToolService {
     public BaseResponseDTO<Page<ToolStockResponseDTO>> getMyFactoryTools(BaseRequestDTO request) {
             User currentUser = securityUtils.getCurrentUser();
 
-            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory)
-                    .orElse(null);
+            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory).orElse(null);
 
             if (factory == null) {
                 throw new ResourceNotFoundException("Factory not found for current user");
@@ -270,8 +265,7 @@ public class ToolService {
     public BaseResponseDTO<ToolStorageDetailDTO> getToolStorageDetails(Long toolId) {
             User currentUser = securityUtils.getCurrentUser();
 
-            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory)
-                    .orElse(null);
+            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory).orElse(null);
 
             if (factory == null) {
                 throw new UnauthorizedAccessException("Factory not found for current user");
@@ -311,8 +305,7 @@ public class ToolService {
     public BaseResponseDTO<Page<String>> getStorageLocationCodes(BaseRequestDTO request) {
 
             User currentUser = securityUtils.getCurrentUser();
-            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory)
-                    .orElse(null);
+            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory).orElse(null);
 
             if (factory == null) {
                 throw new ResourceNotFoundException("Factory not found for current user");

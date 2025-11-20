@@ -1,16 +1,13 @@
 package com.example.inventory_factory_management.controller;
 
-
-import com.example.inventory_factory_management.constants.OrderStatus;
 import com.example.inventory_factory_management.dto.*;
-import com.example.inventory_factory_management.entity.DistributorOrderRequest;
 import com.example.inventory_factory_management.service.CentralOfficeService;
 import com.example.inventory_factory_management.service.OrderService;
 import com.example.inventory_factory_management.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,29 +28,32 @@ public class ChiefOfficeController {
     }
 
     // Central Office Management Endpoints
+    @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/central-office")
     public BaseResponseDTO<Void> createCentralOffice( @RequestBody CentralOfficeDTO centralOfficeDto) {
         return centralOfficeService.createCentralOffice(centralOfficeDto);
     }
 
+    @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/add-central-officer")
     public BaseResponseDTO<Void> addCentralOfficer(@Valid @RequestBody AddChiefOfficerDTO addCentralOfficerDto) {
         return centralOfficeService.addChiefOfficerToOffice(addCentralOfficerDto);
     }
 
+    @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/central-officer")
     public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOfficers() {
         return centralOfficeService.getCentralOfficers();
     }
 
-
+    @PreAuthorize("hasRole('OWNER')")
     @DeleteMapping("/central-office/central-officer/{centralOfficerId}")
     public BaseResponseDTO<Void> removeCentralOfficer(@PathVariable Long centralOfficerId) {
         return centralOfficeService.removeChiefOfficerFromOffice(centralOfficerId);
     }
 
 
-    // NEW: Search central officers by name
+    @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/central-officers/search")
     public ResponseEntity<BaseResponseDTO<List<CentralOfficerDTO>>> searchCentralOfficersByName(
             @RequestParam String name) {
@@ -61,7 +61,7 @@ public class ChiefOfficeController {
         return ResponseEntity.ok(response);
     }
 
-    // NEW: Remove chief officer by name
+    @PreAuthorize("hasRole('OWNER')")
     @DeleteMapping("/central-officer/by-name")
     public ResponseEntity<BaseResponseDTO<Void>> removeCentralOfficerByName(
             @RequestParam String officerName) {

@@ -52,11 +52,9 @@ public class ToolRequestService {
             if(requestDTO.getQuantity() <= 0) {
                 throw new InvalidActionException("Quantity cannot be negative");
             }
-            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory)
-                    .orElseThrow(() -> new ResourceNotFoundException("Factory not found for worker"));
+            Factory factory = currentUser.getUserFactories().stream().findFirst().map(UserFactory::getFactory).orElseThrow(() -> new ResourceNotFoundException("Factory not found for worker"));
 
-            ToolStock toolStock = toolStockRepository.findByTool_IdAndFactory_FactoryId(tool.getId(), factory.getFactoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tool not available in factory stock"));
+            ToolStock toolStock = toolStockRepository.findByTool_IdAndFactory_FactoryId(tool.getId(), factory.getFactoryId()).orElseThrow(() -> new ResourceNotFoundException("Tool not available in factory stock"));
 
             if (toolStock.getAvailableQuantity() < requestDTO.getQuantity()) {
                 throw new ResourceNotFoundException("Insufficient quantity available");

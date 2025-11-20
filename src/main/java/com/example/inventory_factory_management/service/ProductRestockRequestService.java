@@ -49,15 +49,9 @@ public class ProductRestockRequestService {
                 throw new UnauthorizedAccessException("Only central officers can create restock requests");
             }
 
-            Factory factory = factoryRepo.findById(requestDTO.getFactoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Factory not found with ID: " + requestDTO.getFactoryId()));
+            Factory factory = factoryRepo.findById(requestDTO.getFactoryId()).orElseThrow(() -> new ResourceNotFoundException("Factory not found with ID: " + requestDTO.getFactoryId()));
 
-            Product product = productRepo.findById(requestDTO.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-
-//            if (requestDTO.getQtyRequested() == null || requestDTO.getQtyRequested() <= 0) {
-//                return BaseResponseDTO.error("Quantity must be greater than 0");
-//            }
+            Product product = productRepo.findById(requestDTO.getProductId()).orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
             // Check if factory has sufficient stock
             Long currentFactoryStock = getCurrentStock(factory, product);
@@ -87,7 +81,6 @@ public class ProductRestockRequestService {
             int page = requestDTO.getPage() == null ? 0 : requestDTO.getPage();
             int size = requestDTO.getSize() == null ? 20 : requestDTO.getSize();
             Pageable pageable = PageRequest.of(page, size);
-
             Page<CentralOfficeInventoryDTO> resultPage = centralInventoryRepo.findAll(spec, pageable).map(this::convertToInventoryDTO);
 
             String message = "Central office inventory retrieved successfully";
@@ -101,18 +94,14 @@ public class ProductRestockRequestService {
 
             User currentUser = securityUtil.getCurrentUser();
             if (currentUser.getRole() != Role.CENTRAL_OFFICER) {
-//                return BaseResponseDTO.error("Only chief officers can view their requests");
                 throw new UnauthorizedAccessException("Only chief officers can view their requests");
             }
 
             Pageable pageable = PaginationUtil.toPageable(requestDTO);
-            Page<CentralOfficeProductRequest> restockPage = (status != null) ? requestRepo.findByRequestedByUserIdAndStatus(currentUser.getUserId(), status, pageable)
-                    : requestRepo.findByRequestedByUserId(currentUser.getUserId(), pageable);
+            Page<CentralOfficeProductRequest> restockPage = (status != null) ? requestRepo.findByRequestedByUserIdAndStatus(currentUser.getUserId(), status, pageable) : requestRepo.findByRequestedByUserId(currentUser.getUserId(), pageable);
 
             Page<CentralOfficeRestockResponseDTO> resultPage = restockPage.map(this::convertToCentralOfficeDTO);
-
-            String message = status != null ? "Your " + status + " restock requests retrieved successfully"
-                    : "Your restock requests retrieved successfully";
+            String message = status != null ? "Your " + status + " restock requests retrieved successfully" : "Your restock requests retrieved successfully";
 
             return BaseResponseDTO.success(message, resultPage);
     }
@@ -134,16 +123,11 @@ public class ProductRestockRequestService {
             }
 
             Factory factory = factoryRepo.findById(factoryId).orElseThrow(() -> new ResourceNotFoundException("Factory not found"));
-
             Product product = productRepo.findById(stockDTO.getProductId()).orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
             if(product.getStatus().equals(AccountStatus.INACTIVE)) {
                 throw new OperationNotPermittedException("Inactive products cannot be stocked");
             }
-
-//            if (stockDTO.getQuantity() == null || stockDTO.getQuantity() <= 0) {
-//                return BaseResponseDTO.error("Quantity must be greater than 0");
-//            }
 
             // Add to factory inventory and track production
             addToFactoryInventory(factory, product, stockDTO.getQuantity(), currentUser);
@@ -197,7 +181,6 @@ public class ProductRestockRequestService {
 
     }
 
-    // Manager - Get all restock requests from CO
     public BaseResponseDTO<Page<FactoryRestockResponseDTO>> getMyFactoryRestockRequests(RequestStatus status, BaseRequestDTO requestDTO) {
 
             if (!securityUtil.isManagerOrOwner()) {
@@ -223,10 +206,7 @@ public class ProductRestockRequestService {
 
             Pageable pageable = PaginationUtil.toPageable(request, "factoryName");
             Page<Object[]> results = inventoryRepo.getFactoryProductCountsDetailed(pageable);
-
-            // Convert Page<Object[]> to Page<FactoryProductCountDTO>
-            Page<FactoryProductCountDTO> resultPage = results.map(result -> new FactoryProductCountDTO((Long) result[0], (String) result[1],
-                            (Long) result[2], (String) result[3], (Long) result[4]));
+            Page<FactoryProductCountDTO> resultPage = results.map(result -> new FactoryProductCountDTO((Long) result[0], (String) result[1], (Long) result[2], (String) result[3], (Long) result[4]));
 
             return BaseResponseDTO.success("Factory product counts retrieved successfully", resultPage);
     }
@@ -234,7 +214,6 @@ public class ProductRestockRequestService {
 
 
     // HELPER METHODS
-    // Add to central office inventory (accumulate total production from all factories)
     private Long addToCentralOfficeInventory(Product product, Integer quantity) {
         CentralOfficeInventory centralInventory = centralInventoryRepo.findByProduct(product).orElse(new CentralOfficeInventory(product, 0L));
 

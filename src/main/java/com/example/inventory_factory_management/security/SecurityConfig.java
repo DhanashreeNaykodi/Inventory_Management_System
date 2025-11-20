@@ -58,7 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/user/logout").authenticated()     // Add this for your updated logout endpoint
 
                         // Specific role-based endpoints
-                        .requestMatchers("/manager/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR", "WORKER")
+                        .requestMatchers("/manager/**").hasAnyRole("OWNER", "MANAGER", "CHIEF_SUPERVISOR", "WORKER", "CENTRAL_OFFICER")
                         .requestMatchers("/owner/**").hasAnyRole("OWNER","CENTRAL_OFFICER", "MANAGER")
                         .requestMatchers("/product/categories/**").hasRole("OWNER")
                         .requestMatchers("/factories/**").hasRole("OWNER")

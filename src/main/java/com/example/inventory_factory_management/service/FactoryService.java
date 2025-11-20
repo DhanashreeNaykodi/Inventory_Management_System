@@ -50,67 +50,51 @@ public class FactoryService {
 
 
     public BaseResponseDTO<CountResponseDTO> getFactoriesCount() {
-        try {
             long count = factoryRepository.count();
             return BaseResponseDTO.success(CountResponseDTO.of(count, "factories"));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get factory count: " + e.getMessage());
-        }
+
     }
 
 
     public BaseResponseDTO<Page<FactoryDTO>> getAllFactories(BaseRequestDTO request) {
-        try {
-//            Pageable pageable = createPageable(request);
+
             Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findAll(pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
             return BaseResponseDTO.success("Factories retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to retrieve factories: " + e.getMessage());
-        }
+
     }
 
 
     public BaseResponseDTO<Page<FactoryDTO>> getFactoriesByCity(String city, BaseRequestDTO request) {
-        try {
-//            Pageable pageable = createPageable(request);
+
             Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findByCityAndStatus(city, AccountStatus.ACTIVE, pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
 
             return BaseResponseDTO.success("Factories retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to filter factories: " + e.getMessage());
-        }
+
     }
 
     public BaseResponseDTO<Page<FactoryDTO>> searchFactoriesByName(String name, BaseRequestDTO request) {
-        try {
-//            Pageable pageable = createPageable(request);
+
             Pageable pageable = PaginationUtil.toPageable(request);
             Page<Factory> factoryPage = factoryRepository.findByNameContainingIgnoreCase(name, pageable);
             Page<FactoryDTO> dtoPage = factoryPage.map(this::convertToSummaryDTO);
 
             return BaseResponseDTO.success("Factories retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to search factories: " + e.getMessage());
-        }
+
     }
 
 
     public BaseResponseDTO<Page<UserDTO>> getAllManagers(BaseRequestDTO request) {
-        try {
-//            Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
             Pageable pageable = PaginationUtil.toPageable(request);
 
             Page<User> managerPage = userRepository.findByRole(Role.MANAGER, pageable);
             Page<UserDTO> dtoPage = managerPage.map(this::convertUserToDTO);
 
             return BaseResponseDTO.success("Managers retrieved successfully", dtoPage);
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get managers: " + e.getMessage());
-        }
+
     }
 
 
@@ -259,7 +243,6 @@ public class FactoryService {
 
 
     private void sendManagerEmail(User manager, String factoryName, String password, boolean isNewManager) {
-        try {
             String subject = "Factory Manager Assignment - Inventory System";
             String message;
 
@@ -291,25 +274,18 @@ public class FactoryService {
             // Send email
             emailService.sendEmail(manager.getEmail(), subject, message);
 
-        } catch (Exception e) {
-            System.err.println("Failed to send email to manager: " + e.getMessage());
-        }
     }
 
     public BaseResponseDTO<FactoryDTO> getFactoryById(Long factoryId) {
-        try {
             Factory factory = factoryRepository.findById(factoryId)
                     .orElseThrow(() -> new ResourceNotFoundException("Factory not found"));
             return BaseResponseDTO.success(convertToDTO(factory));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to get factory: " + e.getMessage());
-        }
+
     }
 
 
     @Transactional
     public BaseResponseDTO<FactoryDTO> updateFactoryManager(Long factoryId, ManagerUpdateRequest request) {
-        try {
 
             if (request.getManagerId() == null && request.getManagerDetails() == null) {
                 throw new OperationNotPermittedException("Either manager ID or manager details are required");
@@ -387,9 +363,7 @@ public class FactoryService {
             newRelation.setStatus(AccountStatus.ACTIVE);
 
             return BaseResponseDTO.success("Factory manager updated successfully", convertToDTO(updatedFactory));
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to update factory manager: " + e.getMessage());
-        }
+
     }
 
     public BaseResponseDTO<String> deleteFactory(Long id) {
@@ -419,13 +393,9 @@ public class FactoryService {
 
 
     public BaseResponseDTO<String> toggleFactoryStatus(Long id) {
-        try {
-            Factory factory1 = factoryRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Factory doesn't exist"));
+            Factory factory1 = factoryRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Factory doesn't exist"));
 
-            // Toggle the factory status
-            AccountStatus newStatus = (factory1.getStatus() == AccountStatus.ACTIVE) ? AccountStatus.INACTIVE
-                    : AccountStatus.ACTIVE;
+            AccountStatus newStatus = (factory1.getStatus() == AccountStatus.ACTIVE) ? AccountStatus.INACTIVE : AccountStatus.ACTIVE;
 
             factory1.setStatus(newStatus);
             factoryRepository.save(factory1);
@@ -451,9 +421,7 @@ public class FactoryService {
 
             String action = (newStatus == AccountStatus.ACTIVE) ? "activated" : "deactivated";
             return BaseResponseDTO.success("Factory " + action + " successfully");
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to toggle factory status: " + e.getMessage());
-        }
+
     }
 
 

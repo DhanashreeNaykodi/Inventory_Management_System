@@ -66,6 +66,7 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    // request param !
     @PutMapping("/{id}")
     public ResponseEntity<BaseResponseDTO<ProductDTO>> updateProduct(@PathVariable Long id, @Valid @RequestBody ProductDTO productDTO) {
         BaseResponseDTO<ProductDTO> response = productService.updateProduct(id, productDTO);

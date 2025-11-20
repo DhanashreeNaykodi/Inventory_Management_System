@@ -206,7 +206,6 @@ public class CentralOfficeService {
     public BaseResponseDTO<List<CentralOfficeResponseDTO>> getCentralOfficers() {
             List<CentralOffice> offices = centralOfficeRepository.findAll();
 
-            // Convert Entity → DTO
             List<CentralOfficeResponseDTO> officeDtos = offices.stream().map(office -> {
                 CentralOfficeResponseDTO dto = new CentralOfficeResponseDTO();
                 dto.setId(office.getCentralOfficeId());
@@ -236,23 +235,19 @@ public class CentralOfficeService {
                 return dto;
             }).collect(Collectors.toList());
 
-            return BaseResponseDTO.success("Central offices fetched successfully", officeDtos);
+            return BaseResponseDTO.success("Central officers fetched successfully", officeDtos);
 
     }
 
     @Transactional
     public BaseResponseDTO<Void> removeChiefOfficerFromOffice(Long chiefOfficerId) {
-            User chiefOfficer = userRepository.findById(chiefOfficerId).orElseThrow(() -> new UserNotFoundException("Chief Officer not found"));
+        User chiefOfficer = userRepository.findById(chiefOfficerId).orElseThrow(() -> new UserNotFoundException("Chief Officer not found"));
+        Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
+        mapping.ifPresent(userCentralOfficeRepository::delete);
 
-            Optional<UserCentralOffice> mapping = userCentralOfficeRepository.findByUser(chiefOfficer);
-            if (mapping.isEmpty()) {
-                throw new UnauthorizedAccessException("Chief Officer is not assigned to any office");
-            }
+        userRepository.delete(chiefOfficer);
 
-            // Remove the mapping
-            userCentralOfficeRepository.delete(mapping.get());
-            return BaseResponseDTO.success("Chief Officer removed from office successfully");
-
+        return BaseResponseDTO.success("Chief Officer removed successfully");
     }
 
 
@@ -266,13 +261,6 @@ public class CentralOfficeService {
             if (centralOfficers.isEmpty()) {
                 throw new UserAlreadyExistsException("No chief officer found with name: " + chiefOfficerName);
             }
-
-//            if (centralOfficers.size() > 1) {
-//                List<String> officerNames = centralOfficers.stream()
-//                        .map(User::getUsername)
-//                        .collect(Collectors.toList());
-//                return BaseResponseDTO.error("Multiple chief officers found. Please be more specific: " + officerNames);
-//            }
 
             User chiefOfficer = centralOfficers.get(0);
 
@@ -300,8 +288,7 @@ public class CentralOfficeService {
                 throw new UserNotFoundException("No central officers found with name: " + name);
             }
 
-            List<CentralOfficerDTO> officerDTOs = centralOfficers.stream().map(this::convertToCentralOfficerDTO)
-                    .collect(Collectors.toList());
+            List<CentralOfficerDTO> officerDTOs = centralOfficers.stream().map(this::convertToCentralOfficerDTO).collect(Collectors.toList());
 
             return BaseResponseDTO.success("Central officers found successfully", officerDTOs);
 

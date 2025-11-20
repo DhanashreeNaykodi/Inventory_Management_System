@@ -10,12 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class ToolSpecifications {
 
-    public static Specification<Tool> withFilters(
-            Long categoryId,
-            AccountStatus status,
-            ToolType type,
-            Expensive isExpensive,
-            String search) {
+    public static Specification<Tool> withFilters(Long categoryId, AccountStatus status, ToolType type, Expensive isExpensive, String search) {
 
         return (Root<Tool> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             Predicate predicate = cb.conjunction();

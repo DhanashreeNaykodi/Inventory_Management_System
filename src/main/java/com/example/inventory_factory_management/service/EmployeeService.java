@@ -102,9 +102,7 @@ public class EmployeeService {
             }
 
             List<Bay> Bays = bayRepository.findByFactoryFactoryId(targetFactoryId);
-            List<BayDTO> bayDTOs = Bays.stream()
-                    .map(this::convertToBayDTO)
-                    .collect(Collectors.toList());
+            List<BayDTO> bayDTOs = Bays.stream().map(this::convertToBayDTO).collect(Collectors.toList());
 
             return BaseResponseDTO.success("Bays fetched successfully", bayDTOs);
     }
@@ -166,21 +164,7 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
     }
 
 
-    // Get employees by factory name
-    public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryName(String factoryName) {
-            User currentUser = securityUtils.getCurrentUser();
-            if (!securityUtils.isManagerOrOwner()) {
-                throw new UnauthorizedAccessException("Only managers or owners can access employee data");
-            }
 
-            Factory factory = factoryRepository.findByName(factoryName).orElseThrow(() -> new ResourceNotFoundException("Factory not found with name: " + factoryName));
-
-            if (!securityUtils.hasAccessToFactory(factory.getFactoryId())) {
-                throw new UnauthorizedAccessException("You don't have access to this factory");
-            }
-            return getEmployeesByFactoryId(factory.getFactoryId());
-
-    }
 
 
     @Transactional
@@ -352,8 +336,8 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
 
 
     // Get all employees with filtering (Owner or Central Officer only)
+    @Transactional()
     public BaseResponseDTO<EmployeeResponseDTO> getAllEmployees(EmployeeFilterDTO filterDTO) {
-            // Build specification with filters
             Specification<User> spec = UserSpecifications.withFilters(
                     filterDTO.getSearch(),
                     filterDTO.getRole(),
@@ -362,10 +346,7 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
 
             // Get filtered users
             List<User> users = userRepository.findAll(spec);
-
-            List<EmployeeDetailDTO> employeeDetails = users.stream()
-                    .map(this::convertToEmployeeDetailDTO)
-                    .collect(Collectors.toList());
+            List<EmployeeDetailDTO> employeeDetails = users.stream().map(this::convertToEmployeeDetailDTO).collect(Collectors.toList());
 
             EmployeeResponseDTO response = new EmployeeResponseDTO();
             response.setEmployees(employeeDetails);
@@ -389,12 +370,11 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
         return dto;
     }
 
-    // Update the convertToBayDTO method to include factory info
     private BayDTO convertToBayDTO(Bay bay) {
         BayDTO dto = new BayDTO();
         dto.setBayId(bay.getBay_id());
         dto.setName(bay.getName());
-        dto.setDescription(bay.getName()); // Using name as description since description field doesn't exist
+        dto.setDescription(bay.getName());
         if (bay.getFactory() != null) {
             dto.setFactoryId(bay.getFactory().getFactoryId());
             dto.setFactoryName(bay.getFactory().getName());
@@ -403,7 +383,6 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
     }
 
 
-    // Add this new method to include factory information in UserDTO
     private UserDTO convertToUserDTOWithFactory(User user, UserFactory userFactory) {
         UserDTO dto = new UserDTO();
         dto.setUserId(user.getUserId());
@@ -416,7 +395,6 @@ public BaseResponseDTO<EmployeeResponseDTO> getEmployeesByFactoryId(Long factory
         dto.setUpdatedAt(user.getUpdatedAt());
         dto.setImg(user.getImg());
 
-        // Add factory information
         if (userFactory != null && userFactory.getFactory() != null) {
             dto.setFactoryId(userFactory.getFactory().getFactoryId());
             dto.setFactoryName(userFactory.getFactory().getName());

@@ -63,17 +63,6 @@ public class OwnerController {
         return ResponseEntity.ok(response);
     }
 
-    // Update manager details
-    //    manager should update his own details? or owner or both?
-
-//    @PreAuthorize("hasRole('OWNER')")
-//    @PutMapping("/{managerId}")
-//    public ResponseEntity<BaseResponseDTO<UserDTO>> updateManager(
-//            @PathVariable Long managerId,
-//            @RequestBody UserUpdateDTO managerDTO) {
-//        BaseResponseDTO<UserDTO> response = managerService.updateManager(managerId, managerDTO);
-//        return ResponseEntity.ok(response);
-//    }
 
     @PreAuthorize("hasRole('OWNER')")
     @PutMapping("/{managerId}")

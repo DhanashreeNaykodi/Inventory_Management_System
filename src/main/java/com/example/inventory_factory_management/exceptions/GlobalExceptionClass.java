@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.UnexpectedTypeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -211,6 +212,21 @@ public class GlobalExceptionClass {
         errorResponse.put("path", request.getDescription(false).replace("uri=", ""));
 
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(errorResponse);
+    }
+
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<BaseResponseDTO> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
+
+        BaseResponseDTO error = new BaseResponseDTO(
+                false,
+                "ACCESS_DENIED",
+                "You are not authorized to access this resource",
+                null,
+                LocalDateTime.now().toString()
+        );
+
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
 //    @ExceptionHandler(MethodArgumentNotValidException.class)

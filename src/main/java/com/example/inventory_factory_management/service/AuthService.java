@@ -63,7 +63,6 @@ public class AuthService {
 
     public BaseResponseDTO<UserDTO> registerDistributor(RegisterDistributorDTO registerDTO) {
 
-        // Check if user email already exists
         if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
             throw new ResourceAlreadyExistsException("Email already registered: " + registerDTO.getName() + "\n Login to your account.");
         }
@@ -84,7 +83,6 @@ public class AuthService {
         distributor.setStatus(AccountStatus.ACTIVE);
         distributor.setCreatedAt(LocalDateTime.now());
         distributor.setUpdatedAt(LocalDateTime.now());
-
         User savedDistributor = userRepository.save(distributor);
         securityUtil.sendWelcomeEmail(savedDistributor, generatedPassword);
 
@@ -117,15 +115,14 @@ public class AuthService {
 
 
 
+
+
     public BaseResponseDTO<String> logout(String token) {
-        try {
             if (token != null && token.startsWith("Bearer ")) {
                 token = token.substring(7);
             }
             tokenBlacklistService.blacklistToken(token);
             return BaseResponseDTO.success("Logged out successfully");
-        } catch (Exception e) {
-            return BaseResponseDTO.error("Failed to logout: " + e.getMessage());
-        }
+
     }
 }

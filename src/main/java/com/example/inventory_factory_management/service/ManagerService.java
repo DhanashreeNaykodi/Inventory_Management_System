@@ -86,7 +86,13 @@ public class ManagerService {
             User savedManager = userRepository.save(newManager);
 
             // Send welcome email
+//            sendManagerWelcomeEmail(savedManager, generatedPassword);
+        try {
             sendManagerWelcomeEmail(savedManager, generatedPassword);
+        } catch (Exception e) {
+
+            System.out.println("Email sending failed but manager created: " + e.getMessage());
+        }
 
             UserDTO responseDTO = convertToUserDTO(savedManager);
             return BaseResponseDTO.success("Manager created successfully", responseDTO);
